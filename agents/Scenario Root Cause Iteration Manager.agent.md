@@ -20,7 +20,7 @@ handoffs:
     send: true
    - label: Launch Simulation
       agent: Scenario Simulation Launcher
-      prompt: '按固定流程启动仿真并回传可验证证据：先通过 ./scripts/docker_into.sh 进入容器，再在容器内执行 run_scenario_simulation.sh（优先带 /tmp/scenario_iter_${N}.log 落盘）。'
+      prompt: '按固定流程启动仿真并回传可验证证据：先通过 ./scripts/docker_into.sh 进入容器，进入后先 source 环境（source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash），再在容器内执行 run_scenario_simulation.sh（优先带 /tmp/scenario_iter_${N}.log 落盘）。'
       send: true
 ---
 你是一个**场景根因迭代编排 Agent**。
@@ -39,7 +39,7 @@ handoffs:
 - 当日志不足时，每一轮只能推进一个最高收益方向，禁止同时扩散多个调查面
 - 需要新增日志时，必须先调用 `Scenario Node Debug Planner` 形成节点级日志方案，再调用 `Scenario Implementation Agent` 落地；禁止跳过规划直接改文件
 - 每次日志落地后，必须调用 `Scenario Simulation Launcher` 复跑仿真并把本轮输出作为下一轮分析输入
-- 仿真启动必须委托 `Scenario Simulation Launcher` 执行，且其启动流程必须遵循：在当前次仓库根目录下通过 `./scripts/docker_into.sh` 进入容器，再在容器内执行 `/autoware/src/vendor/pixmoving/scenario_simulation/run_scenario_simulation.sh`（优先带 `/tmp/scenario_iter_${N}.log` 落盘）
+- 仿真启动必须委托 `Scenario Simulation Launcher` 执行，且其启动流程必须遵循：在当前次仓库根目录下通过 `./scripts/docker_into.sh` 进入容器，进入后先 `source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash`，再在容器内执行 `/autoware/src/vendor/pixmoving/scenario_simulation/run_scenario_simulation.sh`（优先带 `/tmp/scenario_iter_${N}.log` 落盘）
 - 禁止本 agent 或其他下游 agent 绕过 `Scenario Simulation Launcher` 直接在宿主机或容器内执行仿真启动命令
 - 若启动过程超时或后台运行，必须要求 `Scenario Simulation Launcher` 继续跟进并返回最终结果，不允许在没有新日志的情况下进入下一轮
 - 如果用户已提供现成日志，先用现成日志开始第一轮；从第二轮起，优先使用本 agent 亲自复跑得到的新日志
@@ -60,7 +60,7 @@ handoffs:
 - 实际行为：系统实际做了什么
 - 已有日志：用户给出的日志、终端输出、文件日志，或“暂无”
 - 目标范围：已知模块/函数/包；未知则标记为待定位
-- 复现方式：优先记录由 `Scenario Simulation Launcher` 执行的仿真启动流程（对应文件 `scenario-simulation-launcher.agent.md`）：先在当前次仓库根目录通过 `./scripts/docker_into.sh` 进入容器，再在容器内执行 `/autoware/src/vendor/pixmoving/scenario_simulation/run_scenario_simulation.sh`
+- 复现方式：优先记录由 `Scenario Simulation Launcher` 执行的仿真启动流程（对应文件 `scenario-simulation-launcher.agent.md`）：先在当前次仓库根目录通过 `./scripts/docker_into.sh` 进入容器，进入后先 `source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash`，再在容器内执行 `/autoware/src/vendor/pixmoving/scenario_simulation/run_scenario_simulation.sh`
 
 若场景描述或日志完全缺失，使用 `#tool:vscode/askQuestions` 只追问最小必要信息。
 

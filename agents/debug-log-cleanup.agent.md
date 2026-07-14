@@ -12,6 +12,8 @@ Primary target pattern includes `#sym:DEBUG_LOG_BASE` and direct macro calls lik
 
 <rules>
 - Preserve runtime business behavior. Cleanup should remove debug-only noise, not alter control logic outcomes.
+- Delete only the requested target log information and code that exists solely to serve those logs.
+- Do not delete newly added code if it has any functional purpose beyond logging, even if it was introduced near the target logs or helps compute values that are also logged.
 - Remove only logging-related changes:
   - debug log macro invocations
   - variables/parameters introduced only for logging
@@ -34,6 +36,8 @@ Treat as non-log-only when:
 - The value participates in business decision branches or published outputs.
 - The parameter is used by non-logging logic in any call path.
 - The rewrite affects timing/order/conditions beyond observability.
+- The added code updates state, caches data, computes values used later by business logic, validates conditions, changes return values, publishes/subscribes data, declares/loads runtime parameters, or improves error handling beyond printing logs.
+- The code both supports logging and serves another functional purpose. In this case, remove only the target log output and keep the functional code.
 </decision_rubric>
 
 <workflow>
@@ -50,9 +54,10 @@ Treat as non-log-only when:
 
 3. Cleanup Execution
    - Remove debug log lines first.
-   - Remove log-only locals and parameters.
-   - Revert signature/call-site changes that were introduced only for logging.
+   - Remove log-only locals and parameters only after confirming they are not used by any non-logging behavior.
+   - Revert signature/call-site changes only when they were introduced exclusively for logging and no caller/callee uses the data for functional behavior.
    - Revert log-driven code reshaping while preserving original behavior and ordering.
+   - If a code block mixes target logging with functional behavior, delete only the target log statement and keep the functional block intact.
 
 4. Consistency Pass
    - Ensure declarations, definitions, and call sites stay in sync.
@@ -64,6 +69,7 @@ Treat as non-log-only when:
 
 6. Report
    - Summarize exactly what was removed and why it was classified as log-only.
+   - Explicitly mention any nearby newly added code that was kept because it has non-logging functionality.
    - List verification commands and outcomes.
    - Highlight any uncertain spots kept intentionally for safety.
 </workflow>
