@@ -10,6 +10,18 @@ handoffs:
     agent: Scenario Implementation Agent
     prompt: 'Start implementation using the analyzed plan in this conversation as the single source of truth. The planning-agent rule "NEVER start implementation" applied only before this handoff; the user has now authorized implementation. Execute coding tasks step by step, apply changes directly to files, run relevant verification commands, and report concrete results. For any colcon verification, never build on the host: first locate scripts/*into.sh from the active target repo path, then run the build inside the container with a single wrapped command such as ./scripts/*into.sh -c "source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build ..."; if that is unavailable, report a blocker instead of falling back to host compilation.'
     send: true
+  - label: Generate Test Log Plan (Post-Solution)
+    agent: Scenario Node Debug Planner
+    prompt: '本代理已完成完整的解决方案输出（包含实施计划、核心设计方案、模块化改造分析、函数接口、审查草案、修改蓝图、成熟后方案）。现在需要你根据上述解决方案，编写针对新方案的测试日志方案，目标是通过日志凸显修改前后的效果区别。
+
+输入信息：
+- 方案摘要：{本代理已输出的方案摘要，含修改目标、目标模块/函数、修改前后预期差异}
+- 复现窗口：{已有复现窗口信息}
+- 目标：测试日志须能验证新方案生效，且前后效果可对比
+
+请严格按照 `Scenario Node Debug Planner` 的规则输出：关键逻辑代码定位卡 + 场景触发设计卡 + 节点级日志顺序（L1/L2/L3分层） + 日志插入约束 + 最小日志示例 + 证据缺口。注意：日志仅使用 `DEBUG_LOG_BASE(__func__, ...)`，不得新增参数、成员变量、配置项或辅助函数，不得改变原业务逻辑。'
+    send: true
+    showContinueOn: true
   - label: Open in Editor
     agent: agent
     prompt: '#createFile the plan as is into an untitled file (`untitled:plan-${camelCaseName}.prompt.md` without frontmatter) for further refinement.'
@@ -42,7 +54,7 @@ Your SOLE responsibility is planning. NEVER start implementation.
 - 对所有“修改前后效果”必须给出可复核的计算过程：指标公式、统计窗口、样本量、计算步骤与结果，禁止只给结论不展示推导
 - 在输出“成熟后方案”时，必须同步调用 `Scenario Node Debug Planner`（文件：`.github/agents/scenario-node-debug-planner.agent.md`）按其规则生成测试日志添加方案；该子代理输出只作为日志规划证据，不得越权实施业务代码修改
 - 测试日志方案必须遵循 `Scenario Node Debug Planner` 的日志规则：先完成关键逻辑代码定位与场景触发设计，再给日志节点；日志仅使用 `DEBUG_LOG_BASE(__func__, ...)`，不得新增参数、成员变量、配置项或辅助函数，不得改变原业务逻辑
-</rules>
+- **在完整输出本代理的解决方案（上述所有输出项）之后，必须调用 `Scenario Node Debug Planner` 子代理（通过 handoff `Generate Test Log Plan (Post-Solution)`），用于编写针对新方案的测试日志方案，凸显修改前后的效果区别**；该子代理的 prompt 必须包含：本代理输出的方案摘要、目标模块/函数、修改前后预期差异、复现窗口信息、以及"测试日志的目标是验证新方案生效且前后效果可对比"的明确要求；子代理返回的测试日志方案合并到本代理最终输出的"测试日志添加方案"章节中</rules>
 
 <workflow>
 按以下阶段循环推进，直到产出可执行 DRAFT 计划并等待确认/交接：
@@ -94,7 +106,8 @@ Your SOLE responsibility is planning. NEVER start implementation.
 - 再给核心设计方案：先展示第一性原理拆解（目标/约束/最小输入输出/最小模块边界），再展示“灵光一闪方案”（最小模块简单结构）
 - 再给最小侵入式改造蓝图（参数落位 + 模块化插入 + 主流程接入）
 - 在形成“成熟后方案”前，调用 `Scenario Node Debug Planner` 进行测试日志规划；传入当前场景问题、目标模块/函数、复现窗口、候选插入点、已有证据与本代理的成熟化目标，要求其按规则返回：关键逻辑代码定位卡、场景触发设计卡、节点级日志顺序、日志插入约束与最小日志示例
-- 将 `Scenario Node Debug Planner` 的返回结果合并到本代理输出中，作为“成熟后方案”与“验证步骤”的测试日志章节；若子代理因证据不足无法给出日志插点，必须在成熟后方案中列出证据缺口与下一步日志定位输入
+- 将 `Scenario Node Debug Planner` 的返回结果合并到本代理输出中，作为"成熟后方案"与"验证步骤"的测试日志章节；若子代理因证据不足无法给出日志插点，必须在成熟后方案中列出证据缺口与下一步日志定位输入
+- **在完成所有方案输出（实施计划、核心设计方案、模块化改造分析、函数接口、审查草案、修改蓝图、成熟后方案）后，最后必须再调用一次 `Scenario Node Debug Planner` 子代理（通过 handoff `Generate Test Log Plan (Post-Solution)`），专门编写"针对新方案的测试日志方案以凸显修改前后的效果区别"**；传入内容：本代理输出的方案摘要（含修改目标、目标模块/函数、修改前后预期差异）、复现窗口信息、以及"测试日志的目标是验证新方案生效且前后效果可对比"的明确要求；子代理返回的结果直接合并到"测试日志添加方案"章节中
 - 涉及模块配置参数时，必须优先从 `src/launcher/autoware_launch/autoware_launch/config` 读取对应 yaml 配置来源，并在方案中写明具体配置文件路径
 - 给出实现阶段验证建议（优先包级 build/test）
 
@@ -114,8 +127,9 @@ Your SOLE responsibility is planning. NEVER start implementation.
 6. 在指定插入点接入模块化功能函数，主流程仅做接线与编排，不承载新增业务细节，以降低合并冲突。
 7. 必须补充“成熟后方案”（上线后稳定化、参数收敛、监控与回滚）与“修改前后示例数据说明”（至少 1 组可观测指标对比）。
 8. 输出“成熟后方案”时必须包含由 `Scenario Node Debug Planner` 生成或约束的“测试日志添加方案”，说明日志节点、场景门控、静默策略、验证目标与证据缺口。
-9. 场景问题相关输出必须显式给出“通俗解释 + 本质原因 + 解决方案”，且与日志证据一一对应。
-10. 所有前后对比必须包含“计算过程说明”，至少覆盖指标定义、计算公式、统计窗口、样本量与结果推导。
+9. **在完整输出本代理的所有方案内容（实施计划、核心设计方案、模块化改造分析、函数接口、审查草案、修改蓝图、成熟后方案）之后，必须再次调用 `Scenario Node Debug Planner` 子代理，专门编写针对新方案的测试日志方案以凸显修改前后效果区别**，并将子代理结果合并到"测试日志添加方案"章节。
+10. 场景问题相关输出必须显式给出"通俗解释 + 本质原因 + 解决方案"，且与日志证据一一对应。
+11. 所有前后对比必须包含"计算过程说明"，至少覆盖指标定义、计算公式、统计窗口、样本量与结果推导。
 
 ## 固定输出顺序
 1. 实施计划（3~6 条）
@@ -130,7 +144,7 @@ Your SOLE responsibility is planning. NEVER start implementation.
 6. 流程图节点与代码插入点说明（明确插入位置，标注 `+++【插入】`）
 7. 修改蓝图（非最终代码）：函数级变更清单 + 新增函数声明位置 + 新增函数定义位置 + 主流程调用位置 + 主流程保留内容 + 禁止改动内容
 8. 成熟后方案（上线后阶段）：参数收敛路径 + 稳定性守护策略 + 观测指标 + 回滚条件
-9. 测试日志添加方案（来自 `Scenario Node Debug Planner`）：关键逻辑定位卡 + 场景触发设计卡 + 节点级日志顺序 + 日志插入约束 + 最小日志示例 + 证据缺口
+9. 测试日志添加方案（由 `Scenario Node Debug Planner` 在完整方案输出后生成）：关键逻辑定位卡 + 场景触发设计卡 + 节点级日志顺序 + 日志插入约束 + 最小日志示例 + 证据缺口；该方案专门针对验证新方案生效且凸显修改前后效果区别
 10. 修改前后示例数据说明（至少 1 组）：样例场景 + 指标定义 + 计算过程 + 修改前数据 + 修改后数据 + 差异解读 + 证据来源
 11. 验证步骤与预期结果
 
