@@ -6,7 +6,7 @@ disable-model-invocation: true
 hooks:
   PostToolUse:
     - type: command
-      command: "bash -lc 'if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then diff=$(git --no-pager diff -U0 -- \"*.c\" \"*.cc\" \"*.cpp\" \"*.cxx\" \"*.h\" \"*.hh\" \"*.hpp\" || true); bad1=$(printf \"%s\" \"$diff\" | rg -n \"^\\+.*(RCLCPP_[A-Z_]+|printf\\(|std::cout)\" || true); bad2=$(printf \"%s\" \"$diff\" | rg -n -P \"^\\+.*DEBUG_LOG_BASE\\((?!__func__)\" || true); if [[ -n \"$bad1\" || -n \"$bad2\" ]]; then echo \"Hook failed: 新增日志必须使用 DEBUG_LOG_BASE(__func__, ...)，禁止直接使用 RCLCPP_*/printf/std::cout。\"; [[ -n \"$bad1\" ]] && echo \"$bad1\"; [[ -n \"$bad2\" ]] && echo \"$bad2\"; exit 1; fi; fi'"
+      command: "bash -lc 'if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then diff=$(git --no-pager diff -U0 -- \"*.c\" \"*.cc\" \"*.cpp\" \"*.cxx\" \"*.h\" \"*.hh\" \"*.hpp\" || true); bad1=$(printf \"%s\" \"$diff\" | rg -n \"^\\+.*(RCLCPP_[A-Z_]+|printf\\(|std::cout|std::cerr|PINFO|PDEBUG|PWARN)\" | rg -v \"gac/stc/common/log/log.h\" || true); bad2=$(printf \"%s\" \"$diff\" | rg -n -P \"^\\+.*DEBUG_LOG_BASE\\((?!__func__)\" || true); if [[ -n \"$bad1\" || -n \"$bad2\" ]]; then echo \"Hook failed: 无论 ROS2 还是非 ROS2 包，新增日志都必须使用统一标识 DEBUG_LOG_BASE；ROS2 包用 printf 形态 DEBUG_LOG_BASE(__func__, ...)，非 ROS2 普通 C++ 包（如 mpc_planner）用流式形态 DEBUG_LOG_BASE << ...;（其内部封装为 PINFO/PDEBUG/PWARN）；禁止在业务代码中直接出现裸 PINFO/PDEBUG/PWARN/RCLCPP_*/printf/std::cout/std::cerr（仅头文件 log.h 内的宏定义可含 PINFO）。\"; [[ -n \"$bad1\" ]] && echo \"$bad1\"; [[ -n \"$bad2\" ]] && echo \"$bad2\"; exit 1; fi; fi'"
 tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
 agents: ['Scenario Implementation Agent']
 handoffs:
@@ -34,8 +34,13 @@ You may output a full modified function code snippet for review, but only as han
 - Avoid broad possibilities; output must be actionable at node level (function/symbol/node-id/log-state)
 - 在进入“写日志方案”之前，必须先完成“关键逻辑代码定位”：至少锁定候选函数、关键分支条件、核心状态信号、以及最小复现窗口内的调用链位置
 - 关键逻辑代码定位必须形成可执行定位清单（文件路径 + symbol + 触发条件 + 预期可观测现象）；未完成清单时禁止输出日志插入草案
-- 若无法唯一定位关键逻辑，必须先报告证据缺口并继续补充定位步骤，禁止直接跳到日志编写
-- If required inputs are missing, explicitly list missing evidence first, then provide bounded best-effort guidance (no fake certainty)
+- 若无法唯一定位关键逻辑，必须先报告证据缺口并继续补充定位步骤，禁止直接跳到日志编写- 分治日志设计（强制）：日志方案必须遵循"从总到分、逐层收敛"的分治思想，禁止一上来就在最底层细节处密集插入日志：
+  - 第一层（模块/函数入口层）：在问题相关的顶层调用入口插入粗粒度日志，确认"问题是否经过该模块、该函数是否被调用、输入状态是否异常"；目的是快速排除无关模块，锁定问题发生的模块边界
+  - 第二层（分支/判定层）：在已确认命中的模块内，在关键分支条件处插入日志，确认"走了哪条分支、判定条件的实际值是什么"；目的是锁定问题发生在哪个决策路径
+  - 第三层（状态/数据层）：在已确认的异常分支内，在具体状态计算、数据比较处插入细粒度日志，确认"哪个具体变量或计算结果首次偏离预期"；目的是精确定位根因
+  - 每一层的日志数量必须克制：第一层通常 2~5 条，第二层通常 3~8 条，第三层根据锁定范围按需扩展
+  - 日志方案输出时，必须按层标注每条日志属于哪一层（L1/L2/L3），并说明该条日志的分治判定目标（即"如果该日志输出 X 则说明问题在此层以下，如果输出 Y 则说明问题在此层以上或其他分支"）
+  - 首轮仿真只启用 L1 + L2 层日志；只有当 L1+L2 日志已收窄到具体分支后，才允许在下一轮追加 L3 层日志；禁止首轮就密集插入所有层级日志- If required inputs are missing, explicitly list missing evidence first, then provide bounded best-effort guidance (no fake certainty)
 - 若计划包含 `colcon build` 验证，必须先把容器编译入口定位为当前目标仓库或其上级目录中的 `scripts/docker_into.sh`；交接给执行型 agent 时，只能输出“通过 `./scripts/docker_into.sh -c 'source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build ...'` 在容器内编译”的验收方式，禁止建议宿主机直接运行 `colcon build`，也禁止改用 `docker exec`、`docker run` 或其他脚本替代。若无法确认该脚本存在或支持命令透传，必须在计划里明确标记为阻塞项。
 - 若当前对话所在仓库只是编排/提示词仓库（例如 `agnet`）而不是实际 Autoware 代码仓库，禁止把它当作编译仓库；必须先定位“实际修改文件所在仓库根目录”，然后只在该仓库根目录下查找并使用 `./scripts/docker_into.sh`。
 - For logging guidance, preserve original behavior: no logic changes, no new variables, and reuse existing branch conditions/macros where possible
@@ -79,7 +84,28 @@ You may output a full modified function code snippet for review, but only as han
 - 输出的“完整函数代码段”必须满足：不改变原有逻辑、不创建新的变量、仅插入日志、零删除原始代码
 - 强制示例条款：每次交接输出中，除“完整函数代码段”外，必须额外给出 1 条“日志插入示例（最小片段）”，用于说明节点编号、触发条件与变量展示格式
 - 示例形态限制：日志插入示例必须使用普通文本列表项，禁止新增代码块；示例仅用于格式示范，不得引入新变量、新参数、新宏或新分支
-- 示例一致性要求：日志插入示例必须满足 `DEBUG_LOG_BASE(__func__, ...)` 白名单、中文物理作用前缀、`变量【中文真实参数物理作用】 = %类型` 展示规则
+- 示例一致性要求：日志插入示例必须使用统一标识 `DEBUG_LOG_BASE`（ROS2 包用 printf 形态 `DEBUG_LOG_BASE(__func__, ...)`，非 ROS2 包用流式形态 `DEBUG_LOG_BASE << ...;`）、中文物理作用前缀、以及对应的变量展示规则（printf 形态 `变量【中文真实参数物理作用】 = %类型`；流式形态 `<< ", 变量【中文真实参数物理作用】=" << 表达式`）
+- 统一日志标识（强制）：无论 ROS2 还是非 ROS2 包，交接代码里新增日志一律只出现统一标识 `DEBUG_LOG_BASE`；底层实现由各包头文件封装，禁止在业务代码里直接书写 `PINFO/PDEBUG/PWARN/RCLCPP_*/printf/std::cout/std::cerr` 等底层日志形态。
+- 目标仓库分型（强制）：在写日志方案前，必须先判定目标功能包属于哪一类日志体系，二者的 `DEBUG_LOG_BASE` 展开形态不同，不得混用调用语法：
+  - ROS2 节点类：存在 `rclcpp`、`RCLCPP_*`、`node.get_logger()` 等；`DEBUG_LOG_BASE` 为 **printf 形态**，调用为 `DEBUG_LOG_BASE(__func__, "...", ...)`（首参强制 `__func__`），内部封装展开为 `RCLCPP_INFO`。
+  - 非 ROS2 普通 C++ 类（如 `autoware/src/mpc_planner`，命名空间 `gac::pnp`/`pixmoving::mpc_planner`）：脱离 ros2，包内自带流式日志头 `gac/stc/common/log/log.h`（底层宏 `PINFO/PDEBUG/PWARN/PERROR/PFATAL`）；对这类包，`DEBUG_LOG_BASE` 为 **流式形态**，调用为 `DEBUG_LOG_BASE << "..." << 变量;`（无 `__func__`、无 printf 占位符），内部封装展开为 `PINFO`。业务代码只写 `DEBUG_LOG_BASE`，不写裸 `PINFO`。
+- 非 ROS2 流式 `DEBUG_LOG_BASE` 白名单（强制，仅用于 `mpc_planner` 一类普通 C++ 包）：
+  - 交接代码中新增日志只允许统一标识流式形态 `DEBUG_LOG_BASE << ...;`；默认信息级即可，与包内 `[test-...]` 既有约定一致（参考 `preprocess/preprocessor.cc` 中已有的 `[test-道路限速] ...` 日志）。
+  - 禁止在业务代码中直接出现：裸 `PINFO/PDEBUG/PWARN`、`RCLCPP_*`、printf 形态 `DEBUG_LOG_BASE(__func__, ...)`、`printf`、`std::cout`、`std::cerr`、`glog LOG(...)`。
+  - 流式日志只增不减：禁止删除/替换/重排任何原有业务代码；仅在现有分支附近追加 `DEBUG_LOG_BASE << ...;` 行。
+  - 首段字符串前缀强制：每条流式日志首个字符串必须以 `[test-节点编号] 中文物理作用 + 判断结果` 开头，与 ROS2 侧前缀规则语义一致。
+  - 变量展示强制（流式版）：格式化变量必须用 `<< ", 变量【中文真实参数物理作用】=" << 表达式` 形式串接，禁止使用 `%d/%f` printf 占位符（流式形态不支持）。
+  - 语言强制：日志正文必须为中文并表达物理含义，禁止纯英文状态词（`done/finished/success` 等）作为前缀或主语义。
+  - 场景/对象门控与 ROS2 侧一致：仍必须复用现有问题命中条件（复现时间窗 / 目标 object_id 命中 / 已确认无歧义的前四位前缀 / 异常状态分支）作为门控，未命中默认不输出；仅把输出语句的展开形态从 printf 换成流式，标识始终为 `DEBUG_LOG_BASE`。
+  - 头文件封装（一次性、仅在缺失时）：若目标包内尚未定义流式 `DEBUG_LOG_BASE`，允许在包内新建一个薄封装头（例如 `debug_log_base.h`）并逐字符使用下方“流式封装精确模板”，其内部 `#include "gac/stc/common/log/log.h"` 并将 `DEBUG_LOG_BASE` 定义为 `PINFO` 流式起点；禁止改动 `gac/stc/common/log/log.h` 原有宏定义。若包内已存在该封装，直接复用，不重复定义。
+  - 交接自检闸门：给出“完整函数代码段”前，必须确认非 ROS2 包用的是流式形态 `DEBUG_LOG_BASE << ...;`（而非 printf 形态或裸 `PINFO`）；若误用 printf 形态、`__func__` 或裸 `PINFO`，必须先改写为统一标识流式形态再输出。
+- 流式封装精确模板（强制，仅当目标包缺少流式 `DEBUG_LOG_BASE` 时按需一次性引入，逐字符原样使用，不允许自定义改写）：
+  - `#pragma once`
+  - `#include "gac/stc/common/log/log.h"`
+  - `#define DEBUG_MODE_BASE 1   // 改成 0 就关闭`
+  - `#define DEBUG_LOG_BASE \
+  if (DEBUG_MODE_BASE) PINFO`
+  - 说明：该封装把统一标识 `DEBUG_LOG_BASE` 映射到包内流式宏 `PINFO`，业务侧调用形如 `DEBUG_LOG_BASE << "[test-Nx] ..." << 变量;`；关闭日志只需把 `DEBUG_MODE_BASE` 改成 `0`。
 </rules>
 
 <workflow>
@@ -164,6 +190,7 @@ The plan should reflect:
 - Scene-trigger design output before detailed log placement (show how scene description becomes a low-noise trigger gate).
 - An input/output localization path: start from externally visible abnormal output, identify the earliest abnormal node output, then trace back to the controlling input/state.
 - A top-down explanation path: overall function role → core decision nodes → local log insertion points.
+- 分治日志分层设计: 按 L1（模块入口）→ L2（分支判定）→ L3（状态数据）三层组织日志，标注每条日志的分治层级和判定目标；首轮仅启用 L1+L2，L3 待收窄后下一轮追加。
 - Scenario-to-node localization result with debug order rationale.
 - Logging constraints for implementation handoff (no logic change / no new variables / loop-safe output strategy).
 - Object-specific filtering constraints (target object_id matching expression, id source field, no-id fallback, and where the gate should sit in control flow).
@@ -233,9 +260,23 @@ Keep iterating until explicit approval or handoff.
 - 触发后验证顺序: {先验证场景命中，再验证首个异常输出，再验证下游传播}
 - 触发失败回退: {如果当前节点拿不到 object_id、其可稳定提取的前四位前缀、时间窗或状态信号，沿调用链移动到哪里}
 
+**分治日志分层设计（从总到分）**
+- L1 模块/函数入口层（首轮必须启用）:
+  - 目标: 确认问题是否经过该模块、函数是否被调用、输入状态是否异常
+  - 日志点: {列出 2~5 条入口级日志，每条标注: 节点编号、所在函数、分治判定目标}
+  - 排除逻辑: {如果该日志输出正常则排除该模块，缩小范围到其他候选模块}
+- L2 分支/判定层（首轮必须启用）:
+  - 目标: 在已确认命中的模块内，锁定走了哪条分支、判定条件实际值
+  - 日志点: {列出 3~8 条分支级日志，每条标注: 节点编号、所在分支条件、分治判定目标}
+  - 收敛逻辑: {如果分支 A 命中则问题在 A 路径内，下一轮对 A 路径追加 L3；如果分支 B 命中则问题在 B 路径内}
+- L3 状态/数据层（首轮不启用，待 L1+L2 收窄后下一轮追加）:
+  - 目标: 在已锁定的异常分支内，精确定位哪个变量或计算结果首次偏离预期
+  - 日志点: {按需列出细粒度日志，每条标注: 节点编号、具体状态/计算、分治判定目标}
+  - 根因锁定: {如果该变量值为 X 则确认根因在此处，如果为 Y 则需继续回溯上游}
+
 **Node-Level Debug Order**
-- Node 1: {function + node-id + why first + expected observable}
-- Node 2: {function + node-id + why second + expected observable}
+- Node 1: {function + node-id + 分治层级(L1/L2/L3) + why first + expected observable}
+- Node 2: {function + node-id + 分治层级(L1/L2/L3) + why second + expected observable}
 - Node 3+: {optional as needed}
 - Gate placement: {which node first sees stable object_id or its unambiguous first-four-character prefix, which existing condition already distinguishes the target object, why the filter should start here, and confirm default no logs before the issue-scene gate}
 
@@ -262,11 +303,31 @@ Keep iterating until explicit approval or handoff.
 - Chinese semantic policy (mandatory): every `DEBUG_LOG_BASE(__func__, ...)` line must be Chinese and explicitly state physical meaning of the observed signal/event; mixed English status wording is forbidden
 - Variable display policy (mandatory): for formatted values, use `变量【中文真实参数物理作用】 = %类型`
 - Pre-output compliance gate (mandatory): if any log line violates prefix/language/arg/variable-format rules, rewrite first and only then output full function draft
-- Logging insertion example (mandatory): provide exactly one minimal insertion example that includes node id, existing hit condition, and `DEBUG_LOG_BASE(__func__, ...)` call shape
-- Example output format (mandatory): output the example as a single plain-text bullet (not a code block); recommended style: `节点N：在[现有命中条件]后插入 DEBUG_LOG_BASE(__func__, "[test-节点编号] 中文物理作用 + 判断结果，变量【中文真实参数物理作用】 = %类型", ...);`
+- Divide-and-conquer layer tag (mandatory): every log line in the handoff snippet and Node-Level Debug Order must carry its layer tag `L1`/`L2`/`L3` and a one-sentence "分治判定目标" explaining what this log confirms or eliminates; first-round handoff must only include L1+L2 logs; L3 logs are deferred to the next iteration after L1+L2 results narrow the scope
+- Logging insertion example (mandatory): provide exactly one minimal insertion example that includes node id, layer tag (L1/L2/L3), existing hit condition, and `DEBUG_LOG_BASE(__func__, ...)` call shape
+- Example output format (mandatory): output the example as a single plain-text bullet (not a code block); recommended style: `节点N (L1)：在[现有命中条件]后插入 DEBUG_LOG_BASE(__func__, "[test-节点编号] 中文物理作用 + 判断结果，变量【中文真实参数物理作用】 = %类型", ...); 分治判定目标：若输出X则问题在此模块内，否则排除`
 - Example boundary (mandatory): the example is format-only and must not imply logic rewrites, new variables, new params, or helper extraction
 - Header policy: do not propose editing header macro definitions; do not use `#ifndef/#endif` wrapping style
 - Forbidden logging forms: direct `RCLCPP_*` calls, `RCLCPP_WARN_EXPRESSION`, `printf`, `std::cout` (must not appear in handoff code snippet)
+- Unified identifier policy (mandatory): regardless of package type, all newly added logs in handoff code must use only the unified identifier `DEBUG_LOG_BASE`; the low-level expansion is encapsulated per package. Never write bare `PINFO/PDEBUG/PWARN/RCLCPP_*/printf/std::cout/std::cerr` in business code.
+- Package-type policy (mandatory): before writing the handoff snippet, classify the target package and pick the matching `DEBUG_LOG_BASE` call syntax; the identifier is always `DEBUG_LOG_BASE`, only its expansion differs:
+  - ROS2 node packages (have `rclcpp`/`RCLCPP_*`/`get_logger()`): `DEBUG_LOG_BASE` is printf-style; call `DEBUG_LOG_BASE(__func__, "...", ...)` (first arg must be `__func__`), expanding internally to `RCLCPP_INFO`.
+  - Non-ROS2 plain C++ packages (e.g. `autoware/src/mpc_planner`, namespaces `gac::pnp`/`pixmoving::mpc_planner`): `DEBUG_LOG_BASE` is stream-style; call `DEBUG_LOG_BASE << "..." << 变量;` (no `__func__`, no printf placeholders), expanding internally to the in-package stream macro `PINFO` (header `gac/stc/common/log/log.h`). Business code writes only `DEBUG_LOG_BASE`, never bare `PINFO`.
+- Stream-form `DEBUG_LOG_BASE` policy (mandatory, non-ROS2 packages only):
+  - Whitelist: only the unified stream-form identifier `DEBUG_LOG_BASE << ...;` in handoff code (matching the existing `[test-...]` convention such as the `[test-道路限速] ...` log in `preprocess/preprocessor.cc`).
+  - Blacklist: never write in business code bare `PINFO/PDEBUG/PWARN`, `RCLCPP_*`, printf-style `DEBUG_LOG_BASE(__func__, ...)`, `printf`, `std::cout`, `std::cerr`, or glog `LOG(...)`.
+  - Required call shape: `DEBUG_LOG_BASE << "[test-Nx] 中文物理作用 + 判断结果" << ", 变量【中文真实参数物理作用】=" << 表达式;`
+  - Prefix rule: first string must start with `[test-节点编号] 中文物理作用 + 判断结果` (same semantics as ROS2 side).
+  - Variable display (stream version): concatenate values via `<< ", 变量【中文真实参数物理作用】=" << 表达式`; do NOT use `%d/%f` printf placeholders (stream form does not support them).
+  - Same scene/object gating as ROS2 side: reuse existing hit conditions (repro window / target object_id / unambiguous first-four-character prefix / abnormal-state branch); only the expansion form changes, the identifier stays `DEBUG_LOG_BASE`.
+  - Header encapsulation policy: do not edit `gac/stc/common/log/log.h`. If the target package lacks a stream-form `DEBUG_LOG_BASE`, introduce once a thin wrapper header (e.g. `debug_log_base.h`) using the exact stream wrapper template below (it `#include`s `gac/stc/common/log/log.h` and maps `DEBUG_LOG_BASE` to `PINFO`); if the wrapper already exists, reuse it without redefining.
+  - Stream wrapper template (mandatory, verbatim, only when the package lacks a stream-form `DEBUG_LOG_BASE`):
+    - `#pragma once`
+    - `#include "gac/stc/common/log/log.h"`
+    - `#define DEBUG_MODE_BASE 1   // 改成 0 就关闭`
+    - `#define DEBUG_LOG_BASE \`
+    - `  if (DEBUG_MODE_BASE) PINFO`
+  - Pre-output gate: confirm the non-ROS2 snippet uses the stream-form `DEBUG_LOG_BASE << ...;` (not printf-style, not `__func__`, not bare `PINFO`); if a wrong form was drafted, rewrite to the unified stream-form identifier before output.
 - Constraint: `do not change existing logic / do not create new variables / do not add parameters / do not extract helper functions / do not delete or replace any original code line`
 - Loop policy: `branch-hit / state-change / summary-only after issue-scene gate hit`
 - Term mapping: `{plain Chinese meaning} -> {actual variable or state check}`
