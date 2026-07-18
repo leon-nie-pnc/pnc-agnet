@@ -39,6 +39,7 @@ Your SOLE responsibility is planning. NEVER start implementation.
 - The essential scenario problem is about the SCENARIO itself (what the system fundamentally fails to achieve in this situation), and is distinct from the essential CAUSE (the most upstream decisive factor in code/logic). Both must be produced, in this order: essential scenario problem first, then cause analysis.
 - Every root-cause conclusion MUST satisfy two hard requirements: (1) explain it in plain, easy-to-understand language (avoid jargon stacking; use analogies when helpful) so that developers outside this module can follow it; (2) distill the "essential cause" of the scenario problem — the most upstream, most irreducible decisive factor — rather than stopping at symptoms, surface behavior, or intermediate links in the chain
 - Whenever outputting an essential solution / root solution, MUST include one architecture-level, first-principles "flash of insight" solution: restate the violated invariant or physical/functional law, propose the clean architectural responsibility boundary that would make the problem impossible or structurally unlikely, and clearly separate it from the minimal local patch.
+- Whenever the log-sufficiency conclusion is "sufficient", MUST output a Data Evidence Table (per <plan_style_guide>) using Markdown tables; every numeric value must trace back to a specific tag/line in `scenario_out.log`. Keep the Essential Scenario Problem block itself data-free and place all numeric evidence in this table.
 </rules>
 
 <workflow>
@@ -179,6 +180,7 @@ When logs are insufficient, output exactly one preferred inspection layer:
 - Expected behavior: {one line}
 - Essential scenario problem (one sentence): {the most fundamental scenario-level contradiction, no module/jargon}
 - Why this is essential: {1–3 lines explaining why other observations are downstream of this}
+- Note: keep this block data-free (no log IDs/field values); put all numeric evidence in the Data Evidence Table below
 
 **Log Sufficiency Result**
 - Conclusion: {Logs are sufficient | Logs are insufficient}
@@ -191,6 +193,12 @@ When logs are insufficient, output exactly one preferred inspection layer:
   - Best inspection layer: {upper-layer logic | current function logic | key internal function logic}
   - Why this layer first: {why it is the fastest path to determine the cause}
   - Minimum extra evidence needed: {what to ask/check next}
+
+**Data Evidence Table** (MUST appear when "Logs are sufficient"; omit only when logs are insufficient)
+Produce at least the following two Markdown tables; every numeric value MUST be traceable to a specific tag/line in `scenario_out.log`.
+- Decision-chain causal table (one row per pipeline step): columns = {step/stage | emitting function · tag | key log fields with measured values | conclusion of this step}
+- Key distribution table (count-level evidence): columns = {metric | measured distribution | meaning}
+- Optional: judgment-condition comparison table when a specific branch/threshold decides the outcome, showing both sides of the decisive inequality with real values
 
 **Steps**
 1. {Action with [file](path) links and `symbol` refs}
@@ -214,7 +222,8 @@ When logs are insufficient, output exactly one preferred inspection layer:
 ```
 
 Rules:
-- NO code blocks — describe changes, link to files/symbols
+- NO code blocks — describe changes, link to files/symbols; the NO-code-blocks rule applies only to source/pseudocode fences
+- Markdown tables ARE allowed and are REQUIRED for the Data Evidence Table
 - NO questions at the end — ask during workflow via #tool:vscode/askQuestions
 - Keep scannable
 - No package `test` file authoring tasks; only logging verification output
