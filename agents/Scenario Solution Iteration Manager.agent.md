@@ -20,7 +20,7 @@ handoffs:
     send: true
   - label: Launch Simulation
     agent: Scenario Simulation Launcher
-    prompt: '按固定流程启动仿真：先用 ./scripts/docker_into.sh 进入容器，进入后先 source 环境（source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash），再在容器内运行 run_scenario_simulation.sh，并回报启动证据与日志路径。'
+    prompt: '按固定流程启动仿真：先用 scripts/ 下匹配的 *into.sh（优先 ./scripts/docker_into.sh）进入容器，进入后先 source 环境（source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash），再在容器内自行查找 run_scenario_simulation.sh（禁止写死 vendor/pixmoving 路径）并运行找到的脚本，回报启动证据、脚本实际路径与日志路径。'
     send: true
   - label: Plan Debug Logs
     agent: Scenario Node Debug Planner
@@ -119,7 +119,7 @@ handoffs:
 ## 5. 仿真启动与效果验收
 
 调用 `#tool:agent/runSubagent` 使用 `Scenario Simulation Launcher` 启动仿真：
-- 必须由 launcher 执行固定流程（先 `./scripts/docker_into.sh` 进入容器，进入后先 `source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash`，后容器内 `run_scenario_simulation.sh`）
+- 必须由 launcher 执行固定流程（先用 `scripts/` 下匹配的 `*into.sh`，优先 `./scripts/docker_into.sh` 进入容器，进入后先 `source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash`，后容器内自行查找并执行 `run_scenario_simulation.sh`，禁止写死 `vendor/pixmoving` 路径）
 - 获取启动状态、日志路径与关键证据
 
 随后根据第 1 步定义的验收标准判断：

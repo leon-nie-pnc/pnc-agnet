@@ -12,7 +12,7 @@ handoffs:
     send: true
   - label: 启动场景仿真
     agent: Scenario Simulation Launcher
-    prompt: '请按固定流程启动场景仿真：先在当前次仓库根目录通过 ./scripts/docker_into.sh 进入容器，进入后先 source 环境（source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash），再在容器内执行 /autoware/src/vendor/pixmoving/scenario_simulation/run_scenario_simulation.sh，并回报启动状态、日志落盘路径和关键终端证据。'
+    prompt: '请按固定流程启动场景仿真：先在当前次仓库根目录通过 scripts/ 下匹配的 *into.sh（优先 ./scripts/docker_into.sh）进入容器，进入后先 source 环境（source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash），再在容器内自行查找 run_scenario_simulation.sh（例如从 /autoware/src 下 find，禁止写死 vendor/pixmoving 路径）并执行找到的脚本，回报启动状态、脚本实际路径、日志落盘路径和关键终端证据。'
     send: true
   - label: Open in Editor
     agent: agent

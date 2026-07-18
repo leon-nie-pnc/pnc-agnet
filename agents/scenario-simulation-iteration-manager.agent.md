@@ -39,7 +39,7 @@ handoffs:
 
 如果用户提供的信息不完整，先用 #tool:vscode/askQuestions 补齐最小必要信息：
 - 当前症状：仿真里具体哪里不对
-- 目标仿真命令：是否就是 `src/vendor/pixmoving/scenario_simulation/run_scenario_simulation.sh`
+- 目标仿真入口：是否按规定先通过当前仓库 `scripts/` 下匹配的 `*into.sh`（优先 `./scripts/docker_into.sh`）进入容器，再在容器内自行查找并执行 `run_scenario_simulation.sh`
 - 日志位置：仿真输出写到哪里
 - 候选参数：准备先调哪些场景参数
 - 收敛目标：希望通过这轮调参达到什么可观察结果
