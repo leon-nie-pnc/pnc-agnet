@@ -116,6 +116,25 @@ handoffs:
 
 记录：改动文件、关键符号、验证命令与结果。
 
+### 4.1 编译验证约束（必须遵守）
+
+实施编码后的编译验证必须在 Docker 容器内执行，步骤如下：
+
+1. **前置检查**：先查看仓库根目录下的 `scripts/` 目录，找到 `*into.sh` 脚本（如 `scripts/docker_into.sh`），读取其内容理解容器名称、挂载路径和用法
+2. **进入容器**：在仓库根目录执行 `bash scripts/docker_into.sh` 进入交互式容器会话，或使用命令透传模式 `bash scripts/docker_into.sh -c "<编译命令>"`
+3. **容器内编译**：进入容器后必须先 source 环境：
+   ```bash
+   source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash
+   ```
+   然后执行编译命令，例如：
+   ```bash
+   colcon build --packages-select <目标包> --symlink-install
+   ```
+4. **禁止在宿主机直接编译**：容器外缺少 `install/` 目录下的 `package.sh` 依赖文件和 ROS2 运行时环境，编译必然失败
+5. **编译结果验证**：确认 `Finished <<< <包名>` 无 error 输出
+
+> 注意：`docker_into.sh` 要求容器已通过 `scripts/docker_start.sh` 启动。若容器不存在或已退出，需先启动容器。
+
 ## 5. 仿真启动与效果验收
 
 调用 `#tool:agent/runSubagent` 使用 `Scenario Simulation Launcher` 启动仿真：
