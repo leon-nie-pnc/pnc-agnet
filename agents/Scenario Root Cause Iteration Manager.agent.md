@@ -43,6 +43,12 @@ handoffs:
 - **容器编译是硬性要求**：所有代码修改（日志插入、功能修改等）后的编译验证，必须通过 `./scripts/docker_into.sh -c "source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build --packages-select <包名>"` 在容器内完成。`docker_into.sh` 支持 `-c "<命令>"` 参数直接在容器内执行命令后退出。**绝对禁止**把"进入容器"和"编译"拆成两个独立的宿主机终端步骤——这会导致编译命令在宿主机执行而非容器内，必然失败
 - 调用 `Scenario Implementation Agent` 落地代码时，必须在 prompt 中明确传达：编译验证命令格式为 `cd <仓库根目录> && ./scripts/docker_into.sh -c "source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build --packages-select <包名>"`，且必须作为单条命令执行
 - 需要新增日志时，必须先调用 `Scenario Node Debug Planner` 形成节点级日志方案，再调用 `Scenario Implementation Agent` 落地；禁止跳过规划直接改文件
+- **日志统一标识 + 按层选展开形态（硬性要求）**：mpc_planner 跨越两套底层日志体系，但业务代码一律只写统一标识 `DEBUG_LOG_BASE`，禁止在业务代码里直接书写裸 `PINFO/PWARN/PERROR/RCLCPP_*/printf/std::cout`。规划日志和落地日志时都必须先判断目标文件属于哪一层，再用该层对应的 `DEBUG_LOG_BASE` 调用形态，禁止混用：
+  - **ROS2 适配层**（文件 `#include <rclcpp/rclcpp.hpp>`，或位于 `src/ros2_adapter/` 等 ROS2 节点/适配器，既有日志形如 `RCLCPP_INFO`）：`DEBUG_LOG_BASE` 为 **printf 形态**，调用 `DEBUG_LOG_BASE(__func__, "[标签] ...=%.2f", value);`（首参强制 `__func__`），内部展开为 `RCLCPP_INFO`，配套 `#define DEBUG_MODE_BASE 1` 开关
+  - **非 ROS2 核心层**（文件 `#include "gac/stc/common/log/log.h"`，位于 `functional/`、`context/`、`common/`、`preprocess/`、`postprocess/` 等纯 C++ 核心，命名空间 `gac::pnp`/`pixmoving::mpc_planner`，既有日志形如 `PINFO << ...`）：该层没有 `rclcpp`，printf/`RCLCPP_INFO` 形态**无法编译**。`DEBUG_LOG_BASE` 必须为 **流式形态**，调用 `DEBUG_LOG_BASE << "[标签] ..." << ", 变量【中文物理含义】=" << expr;`（无 `__func__`、无 `%d/%f` 占位符），内部展开为 `PINFO`。若包内尚无流式 `DEBUG_LOG_BASE`，允许一次性在包内新建薄封装头 `debug_log_base.h`（`#include "gac/stc/common/log/log.h"` 后 `#define DEBUG_LOG_BASE if (DEBUG_MODE_BASE) PINFO`），禁止改动 `gac/stc/common/log/log.h`
+  - 判层依据：优先看目标文件已有的 `#include` 和既有日志调用风格（`RCLCPP_INFO` vs `PINFO`）；给 `Scenario Node Debug Planner` 和 `Scenario Implementation Agent` 下发方案时，必须显式标注每个插入点所属层和应使用的 `DEBUG_LOG_BASE` 展开形态（printf / 流式）
+  - 若上一轮出现"ROS2 层加了 `DEBUG_LOG_BASE` 日志、非 ROS2 核心层没加/加不进去"的情况，根因通常是只准备了 ROS2 的 printf 形态宏、缺少非 ROS2 的流式封装；此时必须为该核心文件所在包补上流式 `DEBUG_LOG_BASE` 封装并用流式形态重新落地，不得跳过核心层日志
+  - 两层日志文本统一用中文，并带可 grep 的方括号标签（如 `[终点障碍物构建]`、`[test-节点编号]`），便于在 `scenario_out.log` 中检索
 - 每次日志落地并**编译通过**后，必须调用 `Scenario Simulation Launcher` 复跑仿真并把本轮输出作为下一轮分析输入；编译未通过时禁止启动仿真
 - 仿真启动必须委托 `Scenario Simulation Launcher` 执行，启动流程同样使用 `./scripts/docker_into.sh -c` 在容器内执行；`docker_into.sh` 的 `-c` 参数接受一个完整的 shell 命令字符串，会在容器内以 `bash -lic` 方式执行
 - 禁止本 agent 或其他下游 agent 绕过 `Scenario Simulation Launcher` 直接在宿主机或容器内执行仿真启动命令

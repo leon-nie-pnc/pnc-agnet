@@ -118,12 +118,27 @@ Your job is to execute an approved plan from a planning agent. The planning agen
 - Do not re-run broad planning unless the approved plan is missing required implementation details.
 - Preserve all constraints stated in the approved plan, including no logic changes, no new parameters, no new member variables, and no helper extraction when the plan says logging-only.
 - If the plan is a debug-log insertion plan, insert only the specified `DEBUG_LOG_BASE(...)` lines and preserve original business logic order.
-- When inserting debug logs, use and reuse the existing log control macro convention only:
-  - `#define DEBUG_MODE_BASE 1   // 改成 0 就关闭`
-  - `#define DEBUG_LOG_BASE(__func__, ...) \
+- **CRITICAL — the business code always uses the single unified identifier `DEBUG_LOG_BASE`, but its expansion form differs by code layer.** Before inserting any log, first classify the target file's layer, then use the matching `DEBUG_LOG_BASE` call syntax. This mirrors the convention defined by `Scenario Node Debug Planner`; keep them consistent. Never write bare `PINFO/PWARN/PERROR/RCLCPP_*/printf/std::cout/std::cerr` in business code — always go through `DEBUG_LOG_BASE`.
+  - **How to detect the layer**: inspect the file's existing `#include`s and surrounding log calls.
+    - **ROS2 layer** → the file already includes `<rclcpp/rclcpp.hpp>` (or other `rclcpp/...` headers), or it lives under `src/ros2_adapter/` / a ROS2 node/adapter. Existing logs look like `RCLCPP_INFO(...)`.
+    - **Non-ROS2 core layer** → the file includes `"gac/stc/common/log/log.h"` and existing logs are stream-style `PINFO << ...` / `PWARN << ...` / `PERROR << ...`. These live under `functional/`, `context/`, `common/`, `preprocess/`, `postprocess/`, `serde/`, etc. This is the pure C++ core (namespaces `gac::pnp` / `pixmoving::mpc_planner`) and has NO access to `rclcpp`.
+  - **ROS2 layer → printf-form `DEBUG_LOG_BASE` (expands to `RCLCPP_INFO`):**
+    - `#define DEBUG_MODE_BASE 1   // 改成 0 就关闭`
+    - `#define DEBUG_LOG_BASE(__func__, ...) \
   if (DEBUG_MODE_BASE) { RCLCPP_INFO(rclcpp::get_logger(__func__), __VA_ARGS__); }`
-  - Do not suggest or use `#ifndef DEBUG_MODE_BASE ... #endif` or `#ifndef DEBUG_LOG_BASE ... #endif`.
-  - Ensure inserted log text is Chinese and clearly describes the physical meaning of the observed signal or event.
+    - Requires `#include <rclcpp/rclcpp.hpp>`. Call form: `DEBUG_LOG_BASE(__func__, "[标签] ... 变量【中文物理含义】=%.2f", value);` (first arg must be `__func__`, use printf specifiers `%d`/`%.2f`).
+    - Do not suggest or use `#ifndef DEBUG_MODE_BASE ... #endif` or `#ifndef DEBUG_LOG_BASE ... #endif`.
+  - **Non-ROS2 core layer → stream-form `DEBUG_LOG_BASE` (expands to `PINFO`):** the core has no `rclcpp`, so the printf/`RCLCPP_INFO` form will NOT compile there. Use the stream expansion instead:
+    - If the target package does not yet define a stream-form `DEBUG_LOG_BASE`, introduce a one-time thin wrapper header in the package (e.g. `debug_log_base.h`) using EXACTLY this template (do not modify `gac/stc/common/log/log.h`):
+      - `#pragma once`
+      - `#include "gac/stc/common/log/log.h"`
+      - `#define DEBUG_MODE_BASE 1   // 改成 0 就关闭`
+      - `#define DEBUG_LOG_BASE \
+  if (DEBUG_MODE_BASE) PINFO`
+    - If the wrapper already exists in the package, reuse it; do not redefine.
+    - Call form: `DEBUG_LOG_BASE << "[标签] ... 中文物理含义" << ", 变量【中文物理含义】=" << expr;` (no `__func__`, no printf specifiers — streaming does not support `%d`/`%f`).
+  - **In both layers**: inserted log text must be Chinese and clearly describe the physical meaning of the observed signal or event; keep a consistent bracketed tag (e.g. `[终点障碍物构建]`, `[test-节点编号]`) so it can be grepped in `scenario_out.log`.
+  - **Layer/form self-check gate (mandatory) before writing the edit**: confirm ROS2 files use the printf form `DEBUG_LOG_BASE(__func__, ...)` and non-ROS2 core files use the stream form `DEBUG_LOG_BASE << ...;`. If the approved plan hands you the wrong form for a file's layer (e.g. a printf `DEBUG_LOG_BASE(__func__, ...)` targeted at a non-ROS2 core file, or a bare `PINFO`), rewrite it to the correct unified `DEBUG_LOG_BASE` form for that layer before applying, and note the substitution in your report — never break the build and never emit bare `PINFO/RCLCPP_*` in business code.
 - Never run bare host-side `colcon build`. For any `colcon build` verification command, first search from the active workspace/current working directory upward for `scripts/docker_into.sh`, then run the build only through that script in one wrapped command such as `./scripts/docker_into.sh -c 'source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build ...'`. Do not assume a fixed path, do not split "enter container" and "build" into separate host-shell steps, and do not replace this flow with `docker exec`, `docker run`, or other scripts. If the script is missing or does not support command passthrough, report the blocker and the exact path search result.
 - Run the verification commands named by the plan when feasible.
 - Report concrete file changes and verification results. If verification cannot run, explain the blocker.
@@ -131,7 +146,7 @@ Your job is to execute an approved plan from a planning agent. The planning agen
 
 <workflow>
 1. Identify the approved plan and target files from the conversation.
-2. Inspect the target file sections before editing.
+2. Inspect the target file sections before editing. For any debug-log insertion, also inspect the file's `#include`s and existing log calls to classify it as ROS2 layer (`rclcpp` / `RCLCPP_INFO` / `DEBUG_LOG_BASE`) vs non-ROS2 core layer (`gac/stc/common/log/log.h` / `PINFO`/`PWARN`/`PERROR`), and choose the matching logging convention accordingly.
 3. Apply the smallest code changes needed to execute the plan.
 4. For `colcon build` verification, locate `scripts/docker_into.sh` in the active workspace path first, then execute the build only through `./scripts/docker_into.sh -c 'source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build ...'` from the target repo root; if that wrapper command cannot be formed, stop and report the blocker instead of falling back to the host shell.
 5. Summarize changed files, verification output, and any remaining risks.
