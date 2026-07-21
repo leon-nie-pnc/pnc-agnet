@@ -117,6 +117,11 @@ Your job is to execute an approved plan from a planning agent. The planning agen
 - Keep changes surgical and limited to the approved files, functions, and behavior.
 - Do not re-run broad planning unless the approved plan is missing required implementation details.
 - Preserve all constraints stated in the approved plan, including no logic changes, no new parameters, no new member variables, and no helper extraction when the plan says logging-only.
+- **禁止 Magic Number（硬性红线）**：落地非纯日志的业务/逻辑改动时，禁止把有业务或物理含义的数字（阈值、增益、几何尺寸、时间窗、id、比例、权重等）写成 `constexpr`/`const`/`#define`/字面量硬编码。这类数字必须落位为对应模块 config 的可配置参数：
+  - 落位方式：在最贴近使用点的模块 config 结构体中新增字段（如 `autoware/src/mpc_planner/functional/longitudinal_planner/config.h` 的 `LonPlannerConfig`、`autoware/src/mpc_planner/context/config.h`），在包内 yaml（如 `autoware/src/mpc_planner/config/adoll_mpc.param.yaml`）加对应 key 与默认值（含单位/物理含义注释），并通过既有 yaml→结构体加载链读取；代码使用处改为从 config 读取该字段，而非裸常量。
+  - 唯一豁免：纯数学/语言层面且不可调的常量（0/1/-1 哨兵、取半的数学系数、数组下标等）。一旦数字代表可调工程量/物理量/标识约定，即不豁免。
+  - 若已批准的计划本身给出的是裸常量（如 `constexpr ... = 2147483647;` / `= 0.5;`），视为计划缺陷：落地时必须改为 config 落位形式，并在汇报中说明该替换（参数名、config 结构体、yaml key、默认值）；若因此需要触碰 config.h/yaml/加载代码，属于必要改动，允许在最小范围内进行，但要在汇报中列明所有被触碰文件。
+  - 自检闸门：写完编辑、编译前，grep 本次 diff 是否新增了有业务含义的裸数字常量；若有且未走 config，必须先改为 config 落位再编译。
 - If the plan is a debug-log insertion plan, insert only the specified `DEBUG_LOG_BASE(...)` lines and preserve original business logic order.
 - **CRITICAL — the business code always uses the single unified identifier `DEBUG_LOG_BASE`, but its expansion form differs by code layer.** Before inserting any log, first classify the target file's layer, then use the matching `DEBUG_LOG_BASE` call syntax. This mirrors the convention defined by `Scenario Node Debug Planner`; keep them consistent. Never write bare `PINFO/PWARN/PERROR/RCLCPP_*/printf/std::cout/std::cerr` in business code — always go through `DEBUG_LOG_BASE`.
   - **How to detect the layer**: inspect the file's existing `#include`s and surrounding log calls.
@@ -147,7 +152,7 @@ Your job is to execute an approved plan from a planning agent. The planning agen
 <workflow>
 1. Identify the approved plan and target files from the conversation.
 2. Inspect the target file sections before editing. For any debug-log insertion, also inspect the file's `#include`s and existing log calls to classify it as ROS2 layer (`rclcpp` / `RCLCPP_INFO` / `DEBUG_LOG_BASE`) vs non-ROS2 core layer (`gac/stc/common/log/log.h` / `PINFO`/`PWARN`/`PERROR`), and choose the matching logging convention accordingly.
-3. Apply the smallest code changes needed to execute the plan.
+3. Apply the smallest code changes needed to execute the plan. For non-logging logic changes, before compiling, run the magic-number self-check on your diff: any newly added business/physical numeric constant must be routed to the module config (yaml + config struct + load), not hardcoded as `constexpr`/`const`/`#define`/literal. If found, convert to config-backed form first.
 4. For `colcon build` verification, locate `scripts/docker_into.sh` in the active workspace path first, then execute the build only through `./scripts/docker_into.sh -c 'source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build ...'` from the target repo root; if that wrapper command cannot be formed, stop and report the blocker instead of falling back to the host shell.
 5. Summarize changed files, verification output, and any remaining risks.
 </workflow>

@@ -33,6 +33,7 @@ Your SOLE responsibility is planning. NEVER start implementation.
 当前阶段必须“先分析，不做代码修改”。任何代码改动仅能由 handoff（`Start Implementation`）触发。
 
 <rules>
+- **禁止 Magic Number（硬性红线）**：方案与后续交接代码中，任何有业务/物理含义的数字（阈值、增益、几何尺寸、时间窗、id、比例、权重等）都必须落位为对应模块 config 的可配置参数（yaml 默认值 + config 结构体字段 + 读取加载），禁止写成 `constexpr`/`const`/`#define`/字面量硬编码。仅纯数学/语言层面且不可调的常量（如 0/1/-1 哨兵、取半的数学系数、数组下标）豁免。详见"参数与配置落位规则"。规划时必须为每个数字给出：参数名、所属 config、yaml 路径与 key、默认值、单位与物理含义、取值依据。
 - 本代理禁止直接修改业务代码或输出可直接粘贴运行的最终实现代码
 - 代码修改权限由 handoff（`Start Implementation`）控制
 - 先研究再规划：优先使用只读工具（search/read/日志）建立证据
@@ -137,7 +138,7 @@ Your SOLE responsibility is planning. NEVER start implementation.
 3. 模块化改造分析（是否需要新增以下项，并给出落位位置）
   - 参数（函数输入输出参数）
   - 成员变量（类内长期状态）
-  - 配置参数（参数服务器/launch/yaml）
+  - 配置参数（参数服务器/launch/yaml）：**必须逐个列出方案中引入的每个业务/物理数字**，给出「参数名 | 所属 config 结构体 | yaml 文件路径 + key 层级 | 默认值 | 单位/物理含义 | 取值依据」；本项为禁-magic-number 红线的落地检查表，出现任何未进 config 的裸数字即视为计划不合格
   - 函数内变量（局部变量）
 4. 推荐模块化函数接口（函数签名 + 职责，允许中文注释）
 5. 待修改功能函数写法与具体逻辑（审查草案，先于改造蓝图）
@@ -151,13 +152,20 @@ Your SOLE responsibility is planning. NEVER start implementation.
 > 约束：第 5 项为审查草案（函数写法与具体逻辑），不得输出可直接运行的最终实现代码；第 7 项仅提供可交接的结构化改造蓝图；第 9 项若缺少真实可观测指标与证据来源，则视为无效输出。
 
 ## 参数与配置落位规则（必须覆盖）
-- Autoware 模块的配置参数必须以 `src/launcher/autoware_launch/autoware_launch/config` 作为读取与核对的配置根目录；规划中必须明确具体 yaml 文件路径、参数层级与当前值来源。
-- 必须明确“内外部参数”如何落位到 yaml、hpp、cpp：
-  - yaml：默认参数值
-  - hpp：参数结构体/成员变量声明
-  - cpp：`declare_parameter` 与 `update_param` 读取更新
+- **禁止 Magic Number（硬性红线，最高优先级）**：方案与交接的任何代码里，**禁止**出现无来源的裸数字常量（阈值、增益、几何尺寸、时间窗、id、比例系数、松弛权重等业务/物理含义数字），包括写成 `constexpr`/`const`/`#define`/字面量直填的形式。凡是有业务或物理含义的数字，**必须**落位为"对应模块 config 的可配置参数（yaml 默认值 + 结构体字段 + 读取加载）"，由代码从 config 读取，而不是在 `.cc/.cpp/.h` 里硬编码。
+  - 反面示例（禁止）：`constexpr int32_t kVirtualDestinationObsId = 2147483647;`、`constexpr double kVirtualDestinationWallHalfLengthM = 0.5;`——这类数字必须改为从该模块 config yaml 读取的配置项。
+  - 唯一豁免：纯语言/数学层面、与业务无关且不可调的常量（如 `0`、`1`、`-1` 作纯哨兵、`2` 作除法取半的数学系数、数组下标）。一旦某数字代表"可调的工程量/物理量/标识约定"，即不豁免，必须进 config。
+  - 规划阶段（本代理）必须为每个引入的数字显式给出：参数名、所属 config、yaml 路径与 key、默认值、物理含义与单位、以及"为什么这样取值"的依据；缺任一项视为不可执行计划。
+- **配置根目录按包判定（必须覆盖两类）**：规划中必须先判定目标包的 config 体系，再指明具体 yaml 路径、参数层级与当前值来源：
+  - **Autoware 上层 launch 参数**：以 `src/launcher/autoware_launch/autoware_launch/config` 为配置根目录。
+  - **包自带 config 体系（如 `mpc_planner`）**：参数源为包内 `config/*.param.yaml`（例如 `autoware/src/mpc_planner/config/adoll_mpc.param.yaml`，ROS2 `ros__parameters` 结构），并加载到分模块的 config 结构体（例如 `autoware/src/mpc_planner/functional/longitudinal_planner/config.h` 的 `LonPlannerConfig`、`autoware/src/mpc_planner/context/config.h`）。新增数字必须落到"最贴近使用点的那个模块 config 结构体字段 + 对应 yaml key"，禁止散落成文件级 `constexpr`。
+  - 规划必须显式写出：该包 yaml 文件路径、参数在 yaml 中的层级路径（如 `ros__parameters.longitudinal.<key>`）、对应 config 结构体与字段名、以及 yaml→结构体的加载/读取代码位置。
+- 必须明确“内外部参数”如何落位到 yaml、hpp/结构体、cpp：
+  - yaml：默认参数值（含单位与物理含义注释）
+  - hpp/结构体：参数结构体/成员变量声明（落到对应模块 config，如 `LonPlannerConfig`）
+  - cpp：`declare_parameter`/`update_param` 或包内既有加载链的读取更新位置
 - 若现有参数可复用，优先复用并说明替代关系。
-- 新参数命名需与现有风格一致，避免引入无前缀散乱参数。
+- 新参数命名需与现有风格一致（贴合所在 config 结构体既有字段命名），避免引入无前缀散乱参数或文件级裸常量。
 
 ## 模块化插入规则（必须覆盖）
 1. 对于每个新增功能，必须先拆分为独立功能函数，并可单独接入原逻辑；不得以内联方式直接堆叠到主流程。
