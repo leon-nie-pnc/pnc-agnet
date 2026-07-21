@@ -170,6 +170,26 @@ When logs are insufficient, output exactly one preferred inspection layer:
 - key internal function logic: use when the current function is only a wrapper and the real decision is delegated to a nested helper or subroutine
 </log_sufficiency_decision_rubric>
 
+<log_evidence_levels>
+在 log_sufficiency_decision_rubric 的"充分/不足"二元判断之上，增加证据层次模型，用于识别"日志表面上充分、但本质原因是范式缺陷"的情况。
+
+## 五层证据解读（L1–L5）
+
+每一层回答一个问题，层号越高越接近根因。结论必须到达 L4 或 L5 才能视为"范式级根因锁定"。
+
+- **L1 症状层**: 观察到什么现象？（碰撞、急刹、绕路、停车位置不对）
+- **L2 逻辑层**: 哪段代码/哪个模块输出了该症状？（哪个 gate、哪个 stop 线、哪个条件分支）
+- **L3 输入层**: 该模块的输入信号是什么？输入的来源是否可靠？（上游路径、预测轨迹、感知融合、地图数据）
+- **L4 范式层**: 当前模块使用的决策范式本身是否适合这类场景？（判断准则是否基于正确物理量？常数量化是否掩盖了连续变化？范式边界是否超越了该模块的职责范围？）
+- **L5 归图层**: 是该模块设计缺陷，还是其他模块/系统层的问题被该模块暴露？（模块职责错配、架构层缺失信息流、历史包袱）
+
+硬性触发规则（任一满足，必须进入 L4 审查）：
+1. 某 gate/skip/decision 值在连续大量帧中保持恒定（如 `direct_skip=0` 占 237/237 帧），且 L2/L3 结论为"输入未达标"——必须追问：输入未达标是因为阈值不合理，还是这个模块本就不该用这个阈值？
+2. 上游输入在语义上是完全的（有预测轨迹、有碰撞点、有时序窗），但当前模块输出了"无碰撞"或"安全"——必须追问：是模块没有使用这些信息，还是信息被中间处理环节丢弃了？
+3. 修复链中出现"A gate 绕过 → B gate 兜底 → B gate 再绕过"的多层防护退化——必须追问：是否应由架构层而非单点 logic 解决？
+4. 安全性由"非安全设计目的的 gate"保障（如右转场景中 `no_stop` 防止碰撞）——必须追问：安全责任是否放在了错误的位置？
+</log_evidence_levels>
+
 <plan_style_guide>
 ```markdown
 ## Plan: {Title (2-10 words)}
