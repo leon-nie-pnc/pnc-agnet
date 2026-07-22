@@ -24,7 +24,7 @@ handoffs:
     send: true
   - label: Plan Debug Logs
     agent: Scenario Node Debug Planner
-    prompt: '当前效果不可观测或证据不足。请仅沿单一最高收益方向规划最小充分测试日志方案，供后续实施与复跑仿真。'
+    prompt: '调用模式：DISCOVERY_ONLY。当前效果不可观测或证据不足。请仅沿单一最高收益方向规划最小充分测试日志方案，供后续实施与复跑仿真。仅返回定位卡、触发卡、L1/L2 节点级日志顺序、静默/门控策略、证据缺口；禁止输出完整函数代码段。'
     send: true
 ---
 你是一个 **解决方案迭代闭环编排 Agent**。

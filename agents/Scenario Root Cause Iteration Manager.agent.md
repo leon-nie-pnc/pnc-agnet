@@ -12,7 +12,7 @@ handoffs:
     send: true
   - label: Plan Debug Logs
     agent: Scenario Node Debug Planner
-    prompt: '基于以上场景描述、最新日志和根因分析结果，规划下一轮最小充分的节点级调试日志插入方案。'
+    prompt: '调用模式：DISCOVERY_ONLY。基于以上场景描述、最新日志和根因分析结果，规划下一轮最小充分的节点级调试日志插入方案。只允许沿单一最高收益方向输出：关键逻辑代码定位卡、场景触发设计卡、L1/L2 节点级日志顺序、静默/门控策略、证据缺口。禁止输出完整函数代码段。'
     send: true
   - label: Apply Debug Logs & Build
     agent: Scenario Implementation Agent
@@ -29,7 +29,7 @@ handoffs:
 
 你必须优先复用下游专业 agent：
 - `Scenario Log Cause Planner`：负责先提炼“场景本质问题”，再做日志充分性判断和本质原因分析
-- `Scenario Node Debug Planner`：负责把当前分析结论转成下一轮最小充分日志插入方案
+- `Scenario Node Debug Planner`：负责以 `DISCOVERY_ONLY` 模式把当前分析结论转成下一轮最小充分日志插入方案
 - `Scenario Implementation Agent`：负责按日志方案直接修改代码并做聚焦验证
 - `Scenario Simulation Launcher`（文件：`scenario-simulation-launcher.agent.md`）：负责按规范启动仿真并回收启动证据与日志路径
 
@@ -42,7 +42,7 @@ handoffs:
 - 对 `intersection` 类问题，必须优先回答系统输出日志中为什么触发 `intersection` 的 `stop`，而不是用 validator 碰撞信息解释现象
 - **容器编译是硬性要求**：所有代码修改（日志插入、功能修改等）后的编译验证，必须通过 `./scripts/docker_into.sh -c "source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build --packages-select <包名>"` 在容器内完成。`docker_into.sh` 支持 `-c "<命令>"` 参数直接在容器内执行命令后退出。**绝对禁止**把"进入容器"和"编译"拆成两个独立的宿主机终端步骤——这会导致编译命令在宿主机执行而非容器内，必然失败
 - 调用 `Scenario Implementation Agent` 落地代码时，必须在 prompt 中明确传达：编译验证命令格式为 `cd <仓库根目录> && ./scripts/docker_into.sh -c "source /opt/ros/humble/setup.bash && source /autoware/install/setup.bash && colcon build --packages-select <包名>"`，且必须作为单条命令执行
-- 需要新增日志时，必须先调用 `Scenario Node Debug Planner` 形成节点级日志方案，再调用 `Scenario Implementation Agent` 落地；禁止跳过规划直接改文件
+- 需要新增日志时，必须先调用 `Scenario Node Debug Planner`（`DISCOVERY_ONLY` 模式，禁止完整函数代码段）形成节点级日志方案，再调用 `Scenario Implementation Agent` 落地；禁止跳过规划直接改文件
 - **日志统一标识 + 按层选展开形态（硬性要求）**：mpc_planner 跨越两套底层日志体系，但业务代码一律只写统一标识 `DEBUG_LOG_BASE`，禁止在业务代码里直接书写裸 `PINFO/PWARN/PERROR/RCLCPP_*/printf/std::cout`。规划日志和落地日志时都必须先判断目标文件属于哪一层，再用该层对应的 `DEBUG_LOG_BASE` 调用形态，禁止混用：
   - **ROS2 适配层**（文件 `#include <rclcpp/rclcpp.hpp>`，或位于 `src/ros2_adapter/` 等 ROS2 节点/适配器，既有日志形如 `RCLCPP_INFO`）：`DEBUG_LOG_BASE` 为 **printf 形态**，调用 `DEBUG_LOG_BASE(__func__, "[标签] ...=%.2f", value);`（首参强制 `__func__`），内部展开为 `RCLCPP_INFO`，配套 `#define DEBUG_MODE_BASE 1` 开关
   - **非 ROS2 核心层**（文件 `#include "gac/stc/common/log/log.h"`，位于 `functional/`、`context/`、`common/`、`preprocess/`、`postprocess/` 等纯 C++ 核心，命名空间 `gac::pnp`/`pixmoving::mpc_planner`，既有日志形如 `PINFO << ...`）：该层没有 `rclcpp`，printf/`RCLCPP_INFO` 形态**无法编译**。`DEBUG_LOG_BASE` 必须为 **流式形态**，调用 `DEBUG_LOG_BASE << "[标签] ..." << ", 变量【中文物理含义】=" << expr;`（无 `__func__`、无 `%d/%f` 占位符），内部展开为 `PINFO`。若包内尚无流式 `DEBUG_LOG_BASE`，允许一次性在包内新建薄封装头 `debug_log_base.h`（`#include "gac/stc/common/log/log.h"` 后 `#define DEBUG_LOG_BASE if (DEBUG_MODE_BASE) PINFO`），禁止改动 `gac/stc/common/log/log.h`

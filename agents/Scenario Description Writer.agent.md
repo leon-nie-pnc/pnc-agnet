@@ -8,7 +8,7 @@ agents: ['Scenario Node Debug Planner', 'Scenario Simulation Launcher']
 handoffs:
   - label: 补充测试日志方案
     agent: Scenario Node Debug Planner
-    prompt: '用户当前无法准确描述问题场景。请先基于已有描述和证据，拆解触发时机、参与对象、空间关系、状态变化、外部异常表现，并编写专业的测试日志规划：定位关键节点、输入输出链路、场景触发门控、对象级过滤条件，以及仅使用 DEBUG_LOG_BASE(__func__, ...) 的日志插入建议。完成后把可用于重写 `场景描述.md` 的关键场景事实和证据缺口返回。'
+    prompt: '调用模式：DISCOVERY_ONLY。用户当前无法准确描述问题场景。请先基于已有描述和证据，拆解触发时机、参与对象、空间关系、状态变化、外部异常表现，并编写专业的测试日志规划：定位关键节点、输入输出链路、场景触发门控、对象级过滤条件，以及仅使用 DEBUG_LOG_BASE(__func__, ...) 的日志插入建议。仅返回可用于重写 `场景描述.md` 的关键场景事实、候选节点链、场景门控条件和证据缺口；禁止输出完整函数代码段。'
     send: true
   - label: 启动场景仿真
     agent: Scenario Simulation Launcher

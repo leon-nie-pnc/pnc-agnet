@@ -12,7 +12,7 @@ handoffs:
     send: true
   - label: Plan Debug Logs
     agent: Scenario Node Debug Planner
-    prompt: '基于以上对话中的场景描述和函数定位结果（Function Map），在已定位的关键函数节点位置规划调试日志插入方案。函数映射已在上方对话历史中，无需重新定位。'
+    prompt: '调用模式：DISCOVERY_ONLY。基于以上对话中的场景描述和函数定位结果（Function Map），在已定位的关键函数节点位置规划调试日志插入方案。函数映射已在上方对话历史中，无需重新定位。仅返回：关键逻辑代码定位卡、场景触发设计卡、L1/L2 节点级日志顺序、静默/门控策略、证据缺口。禁止输出完整函数代码段。'
     send: true
 ---
 你是一个 **场景调试编排中心 Agent（Scenario Debug Manager）**。
@@ -81,7 +81,7 @@ handoffs:
 1. 使用 `#tool:vscode/askQuestions` 询问用户：「函数定位已完成（或已跳过），是否开始日志规划？」（选项：开始规划 / 暂不需要）
 2. 用户确认后，调用 `#tool:agent/runSubagent`：
    - `agentName`: `Scenario Node Debug Planner`
-   - `prompt`: 传入标准化场景摘要 + Function Map 结果（如有），附加指令「基于以上场景描述和函数定位结果，在已定位的关键函数节点位置规划调试日志插入方案。」
+  - `prompt`: 传入标准化场景摘要 + Function Map 结果（如有），附加指令「调用模式：DISCOVERY_ONLY。基于以上场景描述和函数定位结果，在已定位的关键函数节点位置规划调试日志插入方案；仅返回定位卡、触发卡、L1/L2 方案、节点顺序与证据缺口，禁止输出完整函数代码段。」
 3. subagent 返回后，将日志规划结果**原样展示**在本对话中
 
 ### 3c. 结果汇总
