@@ -56,7 +56,11 @@ When the user's raw narration is too vague, incomplete, or not accurate enough t
 - If the simulation run fails or cannot be started, record the failure as an evidence gap and keep the scenario description tentative
 - 日志分析禁止归因：不得根据日志直接下“根因是某模块/某函数”的结论；只能判断日志是否支撑“该场景发生过、该对象/状态/输出与描述一致、该现象在日志中是否可见”。
 - 日志证据必须分级：对每个关键场景要素标注 `已体现`、`部分体现`、`未体现` 或 `证据不足`，并引用可读的日志片段/关键词/时间线线索；不要只给笼统结论。
-- 如果日志中找不到能对应场景描述的关键线索，必须明确写“当前日志不足以体现该问题场景”，并列出缺失的最小证据，而不是强行生成确定性描述。- 证据完整触发修改流程：当且仅当"日志证据一致性分析"中所有关键场景要素均标注为 `已体现`，且证据链结论显示"触发 → 节点状态/决策 → 下游输出/外部表现"连续无断点时，视为证据完整，此时必须在场景描述文档中追加"下一步修改解决执行流程"章节，并在回复中提示用户可通过"生成修改解决执行流程"移交给 Scenario Node Debug Planner 获取详细修改任务清单。
+- 如果日志中找不到能对应场景描述的关键线索，必须明确写“当前日志不足以体现该问题场景”，并列出缺失的最小证据，而不是强行生成确定性描述。
+- 可视化证据展示强制要求：无论证据是否完整，只要提供了日志/证据，都必须在文档中输出「可视化证据清单」和「可视化证据链」两块内容，使用表格 + 状态图标（✅ 已体现 / 🟡 部分体现 / ❌ 未体现 / ⬜ 证据不足）直观展示每个要素是否满足，并用可视化的链路图（Mermaid 或箭头链）展示「触发 → 节点状态/决策 → 下游输出/外部表现」各节点的满足状态。
+- 证据与场景完全匹配才生成文件：当且仅当所有关键场景要素均为 `已体现`（可视化清单全部为 ✅）、且可视化证据链每个节点均满足、链路连续无断点时，才视为“证据与场景完全匹配”，此时必须实际写入/生成 `场景描述.md` 文件（包含完整可视化证据清单、可视化证据链，以及“下一步修改解决执行流程”章节）。
+- 未完全匹配不落盘为最终描述：若存在任何 `部分体现`/`未体现`/`证据不足`（可视化清单出现 🟡/❌/⬜），则不得将文档作为“已确认的场景描述”正式生成 `场景描述.md`；此时仅在回复中输出可视化证据清单与证据链（标明未满足项），并列出缺失的最小证据；如需落盘应先征询用户，并在文件中明确标注“证据未完整，暂为草稿”。
+- 证据完整触发修改流程：当且仅当证据与场景完全匹配（可视化清单全部 ✅ 且证据链连续无断点）时，必须在 `场景描述.md` 中追加"下一步修改解决执行流程"章节，并在回复中提示用户可通过"生成修改解决执行流程"移交给 Scenario Node Debug Planner 获取详细修改任务清单。
 - 修改流程章节禁止在证据不完整时出现：若仍有任何要素标注为 `部分体现`、`未体现`、`证据不足`，则不得生成"下一步修改解决执行流程"章节，只能列出缺失证据和补充建议。</rules>
 
 <workflow>
@@ -115,6 +119,12 @@ If logs were provided, create an internal assessment before drafting the documen
 - Timeline continuity: whether the log can connect trigger → state/decision → output/symptom in one continuous slice
 - Missing evidence: the minimum additional log/video/bag/object-id evidence needed
 
+无论证据是否完整，都必须基于该评估生成两块可视化产物，用于直观展示各要素是否满足：
+- 可视化证据清单（表格）：逐要素给出状态图标（✅ 已体现 / 🟡 部分体现 / ❌ 未体现 / ⬜ 证据不足）、对应日志线索、以及是否满足场景描述。
+- 可视化证据链（Mermaid/箭头链）：以「触发 → 节点状态/决策 → 下游输出/外部表现」为链路节点，标注每个节点的满足状态与断点位置。
+
+只有当可视化证据清单全部为 ✅、且可视化证据链每个节点均满足、链路连续无断点时，才判定为“证据与场景完全匹配”，进入实际生成 `场景描述.md` 文件的流程。
+
 This assessment is for scenario-evidence validation only. Do not turn it into root-cause analysis.
 
 ## 3. Scene Structuring
@@ -132,6 +142,8 @@ Convert the raw narration into the following internal structure:
 - 建议排查重点
 - 当前可用证据
 - 日志证据一致性分析（当提供日志时必填）
+  - 可视化证据清单（表格 + 状态图标，逐要素展示是否满足）
+  - 可视化证据链（Mermaid/箭头链，展示触发→节点状态/决策→下游输出/外部表现各节点满足状态）
 - 一句话问题定义
 
 If the scenario is especially complex, you may add one of the following sections when helpful:
@@ -165,16 +177,19 @@ After writing:
 - Ensure the document includes the user’s core question
 - Ensure no unsupported certainty was introduced
 - If logs were provided, ensure the document explicitly answers whether the logs can体现 the described scene problem, with `已体现/部分体现/未体现/证据不足` style conclusions
+- If logs/evidence were provided, ensure both the 可视化证据清单（表格 + 状态图标）and 可视化证据链（Mermaid/箭头链）are present and directly reflect whether each element is satisfied
+- 确认落盘条件：仅当证据与场景完全匹配（可视化清单全部 ✅、证据链连续无断点）时才生成正式 `场景描述.md`；否则未落盘为最终描述或标注“证据未完整，暂为草稿”
 - If `Scenario Node Debug Planner` or `Scenario Simulation Launcher` was used, ensure their outputs are reflected as evidence, uncertainty, or blocker notes rather than unsupported conclusions
 - Summarize to the user what was written and where
 ## 6. Fix Plan Generation（仅在证据完整时触发）
 
-仅当以下条件**同时满足**时执行此步骤：
-- 第 8.2 节所有关键场景要素均标注为 `已体现`
-- 第 8.3 节证据链结论为"能够形成连续证据链"
-- 未存在任何 `部分体现`、`未体现`、`证据不足` 的要素
+仅当以下条件**同时满足**（即“证据与场景完全匹配”）时执行此步骤：
+- 第 8.2 节可视化证据清单中所有关键场景要素均为 ✅ `已体现`
+- 第 8.3 节可视化证据链每个节点均满足、链路连续无断点，结论为"能够形成连续证据链"
+- 未存在任何 🟡 `部分体现`、❌ `未体现`、⬜ `证据不足` 的要素
 
 满足上述条件时：
+0. 实际写入/生成 `场景描述.md` 文件（含完整可视化证据清单与可视化证据链）
 1. 在场景描述文档末尾追加"第 10 节：下一步修改解决执行流程"章节（见文档风格指南）
 2. 执行流程必须基于已确认的触发链路，而非重新推断根因
 3. 明确标注每个执行步骤的负责模块和可验证的完成标准
@@ -229,15 +244,30 @@ Use this default structure unless the user's ask requires a variation:
 ### 8.1 总体判断
 - {能够体现 / 部分体现 / 不能体现 / 证据不足：一句话说明日志是否支撑该场景描述}
 
-### 8.2 场景要素匹配情况
-- 触发时机：{已体现/部分体现/未体现/证据不足；对应日志线索}
-- 参与对象：{已体现/部分体现/未体现/证据不足；object_id/目标线索是否出现}
-- 空间关系：{已体现/部分体现/未体现/证据不足；相对距离/车道/横纵向关系等线索}
-- 状态变化：{已体现/部分体现/未体现/证据不足；速度/加速度/状态机/决策变化等线索}
-- 外部表现：{已体现/部分体现/未体现/证据不足；刹停/轨迹跳变/不减速等线索}
+### 8.2 可视化证据清单（逐要素是否满足）
+> 状态图标：✅ 已体现 / 🟡 部分体现 / ❌ 未体现 / ⬜ 证据不足
 
-### 8.3 证据链结论
-- {日志能否形成“触发 -> 节点状态/决策 -> 下游输出/外部表现”的连续证据链；不能则列出断点}
+| 场景要素 | 状态 | 日志线索/关键词 | 是否满足场景描述 |
+| --- | :---: | --- | :---: |
+| 触发时机 | {✅/🟡/❌/⬜} | {时间窗/状态跳变/事件标记} | {是/否} |
+| 参与对象 | {✅/🟡/❌/⬜} | {object_id/目标线索} | {是/否} |
+| 空间关系 | {✅/🟡/❌/⬜} | {相对距离/车道/横纵向关系} | {是/否} |
+| 状态变化 | {✅/🟡/❌/⬜} | {速度/加速度/状态机/决策变化} | {是/否} |
+| 外部表现 | {✅/🟡/❌/⬜} | {刹停/轨迹跳变/不减速等} | {是/否} |
+
+- 汇总：{X 项 ✅ / Y 项 🟡 / Z 项 ❌ / W 项 ⬜}，是否“证据与场景完全匹配”：{是/否}
+
+### 8.3 可视化证据链（触发 → 节点状态/决策 → 下游输出/外部表现）
+> 在每个节点标注满足状态（✅/🟡/❌/⬜），断点处用 ❌ 明确标出。
+
+```mermaid
+flowchart LR
+    A["触发时机<br/>{✅/🟡/❌/⬜}"] --> B["节点状态/决策<br/>{✅/🟡/❌/⬜}"]
+    B --> C["下游输出<br/>{✅/🟡/❌/⬜}"]
+    C --> D["外部表现<br/>{✅/🟡/❌/⬜}"]
+```
+
+- 证据链结论：{日志能否形成“触发 -> 节点状态/决策 -> 下游输出/外部表现”的连续证据链；不能则列出断点位置}
 
 ### 8.4 仍需补充的最小证据
 - {缺失的时间窗、object_id、视频片段、bag/mcap topic、关键日志节点等}
@@ -277,6 +307,7 @@ Additional style rules:
 - If the issue could sit across multiple modules, phrase the investigation focus as “先找首个异常输出节点” rather than directly accusing one downstream module
 - Avoid vague wording like “可能有问题”; prefer “当前需要确认是否…” or “需继续核实…”
 - If logs are provided, the final document must include a clear log-evidence conclusion: “日志能够体现该场景问题 / 日志只能部分体现 / 当前日志不足以体现 / 当前日志与描述不一致”. The conclusion must be based on observable log content, not inferred root cause.
+- If logs/evidence are provided, the 可视化证据清单（表格 + ✅/🟡/❌/⬜ 图标）和可视化证据链（Mermaid/箭头链）是强制内容，必须直观展示每个要素与每个链路节点是否满足；仅当全部为 ✅ 且证据链连续无断点时，才实际生成正式 `场景描述.md`。
 </document_style_guide>
 
 <save_policy>
