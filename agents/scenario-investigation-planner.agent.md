@@ -2,7 +2,7 @@
 name: Scenario Investigation Planner
 description: Iteratively localizes scenario issues and outlines evidence-backed implementation plans
 argument-hint: Describe the scenario symptom, target function, and current evidence
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'search', 'read', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
 agents: []
 handoffs:

@@ -2,7 +2,7 @@
 name: Scenario Node Debug Planner
 description: Researches and outlines multi-step plans
 argument-hint: Outline the goal or problem to research
-disable-model-invocation: true
+disable-model-invocation: false
 hooks:
   PreToolUse:
     - type: command

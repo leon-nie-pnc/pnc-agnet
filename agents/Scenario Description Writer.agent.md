@@ -2,7 +2,7 @@
 name: Scenario Description Writer
 description: 根据用户提供的问题场景描述，自动整理生成专业、结构化的场景描述文档，并可结合输入日志文件分析日志是否能够体现描述的场景问题，最终保存为 `场景描述.md`
 argument-hint: 提供问题场景的自然语言描述、目录路径，以及可用的 bag/视频/日志证据；如需日志验证，请同时提供日志文件路径
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'read', 'search', 'edit', 'execute/runInTerminal', 'execute/getTerminalOutput', 'testFailure', 'vscode/askQuestions']
 agents: ['Scenario Node Debug Planner', 'Scenario Simulation Launcher']
 handoffs:

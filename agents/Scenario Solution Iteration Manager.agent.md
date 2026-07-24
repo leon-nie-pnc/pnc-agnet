@@ -2,7 +2,7 @@
 name: Scenario Solution Iteration Manager
 description: 支持两种路径：成熟方案闭环，或低风险场景下先给简单直接的灵光一闪快解；均需审批并以仿真证据验收。
 argument-hint: 描述场景症状、预期效果、目标模块、当前证据、仓库根目录与验收标准
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'vscode/askQuestions']
 agents: ['Autoware Feature Delivery Agent', 'Scenario Implementation Agent', 'Scenario Simulation Launcher', 'Scenario Node Debug Planner']
 handoffs:

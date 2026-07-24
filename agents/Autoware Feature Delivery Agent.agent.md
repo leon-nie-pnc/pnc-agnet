@@ -2,7 +2,7 @@
 name: Autoware Feature Delivery Agent
 description: 在 Autoware ROS 2 工作区中产出证据驱动的最小侵入式实现规划，支持参数落位、模块化插入、第一性原理拆解，以及可执行验证步骤。
 argument-hint: 描述目标包/文件/函数、当前问题或期望行为，以及已有日志或流程图节点。
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
 agents: ['Scenario Node Debug Planner', 'Scenario Implementation Agent']
 handoffs:

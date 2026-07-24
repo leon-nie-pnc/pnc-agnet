@@ -3,7 +3,7 @@ name: Code Reading Analysis Guide
 description: 以专业的技术解读和架构分析，引导用户深入理解陌生代码的设计原理与关键决策
 argument-hint: Describe what module/file/function you want to understand and your current confusion
 target: vscode
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'search', 'read', 'edit', 'web', 'vscode/memory', 'vscode/askQuestions', 'execute/getTerminalOutput', 'execute/testFailure']
 agents: ['Explore']
 handoffs:

@@ -2,7 +2,7 @@
 name: Scenario Root Cause Iteration Manager
 description: 迭代编排场景本质问题提炼、根因分析、日志规划、日志落地与仿真复跑，直到输出本质原因与可彻底解决的问题方案
 argument-hint: 描述场景症状、预期与实际、已有日志、目标模块或复现方式
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
 agents: ['Scenario Log Cause Planner', 'Scenario Node Debug Planner', 'Scenario Implementation Agent', 'Scenario Simulation Launcher']
 handoffs:

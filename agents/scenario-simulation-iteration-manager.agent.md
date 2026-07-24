@@ -2,7 +2,7 @@
 name: Scenario Simulation Iteration Manager
 description: 运行场景仿真、读取日志、迭代调参，并在证据不足时调用子 agent 按规则补日志后继续迭代
 argument-hint: 描述当前场景、仿真命令、日志位置、候选参数和希望收敛的目标
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'vscode/askQuestions']
 agents: ['Scenario Node Debug Planner', 'Scenario Implementation Agent', 'Scenario Log Cause Planner']
 handoffs:

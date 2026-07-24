@@ -2,7 +2,7 @@
 name: Scenario Log Cause Planner
 description: Collects scenario+log evidence, judges log sufficiency, and outlines actionable multi-step plans
 argument-hint: Describe the scenario symptom, logs, and target function/module to investigate
-disable-model-invocation: true
+disable-model-invocation: false
 tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
 agents: []
 handoffs:
