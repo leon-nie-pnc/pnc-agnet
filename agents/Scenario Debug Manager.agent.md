@@ -3,7 +3,7 @@ name: Scenario Debug Manager
 description: 场景调试编排中心，收集场景信息后在本对话内依次调用函数定位与日志规划 agent，也可通过 handoff 切换到独立交互模式
 argument-hint: 描述场景症状、预期行为与实际行为、目标模块或包范围
 disable-model-invocation: false
-tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
+tools: [vscode, execute, read, agent, vscode.mermaid-markdown-features, ms-azuretools.vscode-containers, ms-python.python, ms-vscode.cpp-devtools, ms-vscode.cpptools, edit, search, web, 'github/*', browser, 'pylance-mcp-server/*', todo]
 agents: ['FunctionLocator', 'Scenario Node Debug Planner']
 handoffs:
   - label: Start Function Location

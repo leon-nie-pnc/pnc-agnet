@@ -3,7 +3,7 @@ name: FunctionLocator
 description: Maps problem scenarios to key functions, symbols, call paths, and package-level logic framework diagrams in the codebase
 argument-hint: Describe the scenario, expected behavior, and module scope to investigate
 disable-model-invocation: false
-tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
+tools: [vscode, execute, read, agent, vscode.mermaid-markdown-features, ms-azuretools.vscode-containers, ms-python.python, ms-vscode.cpp-devtools, ms-vscode.cpptools, edit, search, web, 'github/*', browser, 'pylance-mcp-server/*', todo]
 agents: []
 handoffs:
   - label: Start Deep Search

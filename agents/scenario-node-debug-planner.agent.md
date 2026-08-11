@@ -55,7 +55,7 @@ hooks:
   PostToolUse:
     - type: command
       command: "bash -lc 'if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then diff=$(git --no-pager diff -U0 -- \"*.c\" \"*.cc\" \"*.cpp\" \"*.cxx\" \"*.h\" \"*.hh\" \"*.hpp\" || true); bad1=$(printf \"%s\" \"$diff\" | rg -n \"^\\+.*(RCLCPP_[A-Z_]+|printf\\(|std::cout|std::cerr|PINFO|PDEBUG|PWARN)\" | rg -v \"gac/stc/common/log/log.h\" || true); bad2=$(printf \"%s\" \"$diff\" | rg -n -P \"^\\+.*DEBUG_LOG_BASE\\((?!__func__)\" || true); if [[ -n \"$bad1\" || -n \"$bad2\" ]]; then echo \"Hook failed: 无论 ROS2 还是非 ROS2 包，新增日志都必须使用统一标识 DEBUG_LOG_BASE；ROS2 包用 printf 形态 DEBUG_LOG_BASE(__func__, ...)，非 ROS2 普通 C++ 包（如 mpc_planner）用流式形态 DEBUG_LOG_BASE << ...;（其内部封装为 PINFO/PDEBUG/PWARN）；禁止在业务代码中直接出现裸 PINFO/PDEBUG/PWARN/RCLCPP_*/printf/std::cout/std::cerr（仅头文件 log.h 内的宏定义可含 PINFO）。\"; [[ -n \"$bad1\" ]] && echo \"$bad1\"; [[ -n \"$bad2\" ]] && echo \"$bad2\"; exit 1; fi; fi'"
-tools: ['agent', 'search', 'read', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'web', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'vscode/askQuestions']
+tools: [vscode, execute, read, agent, vscode.mermaid-markdown-features, ms-azuretools.vscode-containers, ms-python.python, ms-vscode.cpp-devtools, ms-vscode.cpptools, edit, search, web, 'github/*', browser, 'pylance-mcp-server/*', todo]
 agents: ['FunctionLocator', 'Scenario Implementation Agent']
 handoffs:
   - label: Start Implementation

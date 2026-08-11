@@ -105,7 +105,7 @@ hooks:
         sys.exit(1)
         PY
       timeout: 30
-tools: ['read', 'search', 'edit', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'vscode/askQuestions']
+tools: [vscode, execute, read, agent, vscode.mermaid-markdown-features, ms-azuretools.vscode-containers, ms-python.python, ms-vscode.cpp-devtools, ms-vscode.cpptools, edit, search, web, 'github/*', browser, 'pylance-mcp-server/*', todo]
 ---
 You are a SCENARIO IMPLEMENTATION AGENT.
 

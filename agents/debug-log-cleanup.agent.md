@@ -2,7 +2,7 @@
 name: Debug Log Cleanup Agent
 description: Removes temporary #sym:DEBUG_LOG_BASE instrumentation and reverts log-only parameter/signature rewrites while preserving business behavior.
 argument-hint: Provide target scope (files/package/commit range) and cleanup goal, e.g. remove #sym:DEBUG_LOG_BASE and related log-only changes
-tools: ['read', 'search', 'edit', 'execute/runInTerminal', 'execute/getTerminalOutput', 'execute/testFailure', 'vscode/askQuestions']
+tools: [vscode, execute, read, agent, vscode.mermaid-markdown-features, ms-azuretools.vscode-containers, ms-python.python, ms-vscode.cpp-devtools, ms-vscode.cpptools, edit, search, web, 'github/*', browser, 'pylance-mcp-server/*', todo]
 ---
 You are a DEBUG LOG CLEANUP AGENT.
 

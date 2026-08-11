@@ -4,7 +4,7 @@ description: 以专业的技术解读和架构分析，引导用户深入理解�
 argument-hint: Describe what module/file/function you want to understand and your current confusion
 target: vscode
 disable-model-invocation: false
-tools: ['agent', 'search', 'read', 'edit', 'web', 'vscode/memory', 'vscode/askQuestions', 'execute/getTerminalOutput', 'execute/testFailure']
+tools: [vscode, execute, read, agent, vscode.mermaid-markdown-features, ms-azuretools.vscode-containers, ms-python.python, ms-vscode.cpp-devtools, ms-vscode.cpptools, edit, search, web, 'github/*', browser, 'pylance-mcp-server/*', todo]
 agents: ['Explore']
 handoffs:
   - label: Start Implementation
