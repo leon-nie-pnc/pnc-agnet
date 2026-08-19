@@ -111,6 +111,11 @@ External invocation protocol:
 - 输出的完整函数草案必须逐行保留原始逻辑，仅允许新增 `DEBUG_LOG_BASE(...)` 行（含必要缩进）
 - In loops, prevent log explosion by defaulting to: branch-hit logs, state-change logs, and end-of-loop summary logs only, and only after issue-scene gating is hit
 - 日志场景门控（强制）：仅在问题场景发生时输出日志；必须复用现有问题命中条件（如复现时间窗、目标 object_id 命中、异常状态分支）作为门控，未命中时默认不输出日志
+- 门控用范围值而非精确值（强制）：当门控条件依赖连续/浮点量（如相对距离、速度、加速度、时间、TTC、横向偏差等）时，禁止用“等于某个精确具体值”或“精确浮点相等”作为触发条件，否则会因数值抖动、采样错帧、单位/精度差异导致问题帧偶发命中、日志有时打不出来；必须改为“贴合该问题场景物理含义的合理区间/阈值带”来门控（如 `x_lo <= 值 <= x_hi` 或 `值 >= 阈值` 且 `值 <= 上限`）。
+- 区间宽度适中（强制）：范围值必须由问题场景的物理含义推导，既要“足够宽”以稳定覆盖问题帧（容忍正常抖动、采样错帧、上下游延迟），又要“足够窄”以排除无关正常帧、避免日志刷屏；禁止用过宽区间（等价于无门控/全量打印）或过窄区间（等价于精确值、容易漏触发）。
+- 范围值可解释（强制）：计划中每个用范围门控的条件都必须写清 4 项——{被门控物理量的中文含义}、{区间上下界或阈值}、{为什么这个宽度能稳定覆盖问题帧}、{为什么这个宽度不会把无关正常帧也放进来}；区间边界应尽量复用现有阈值/参数的物理量纲，不得为门控新增参数或成员变量。
+- 时间/帧窗同理（强制）：复现时间窗也必须给一段合理时长的窗口区间（起止时间或帧号范围），而不是钉死在单一时间戳/单帧；窗口需覆盖“问题开始—发展—外部表现”全过程，又不显著超出该过程。
+- object_id 门控例外说明：离散标识（完整 UUID/object_id 或已确认无歧义的前四位前缀）本身是精确匹配语义，不适用“范围值”，仍按对象级门控规则精确命中即可；范围值规则只针对连续/浮点物理量与时间窗。
 - 场景描述驱动（强制）：拿到用户的问题现象描述后，必须先把自然语言场景拆成“触发时机 / 参与对象 / 空间关系 / 速度或状态变化 / 外部异常表现”五类要素，再决定日志设计；禁止脱离场景描述直接罗列日志点
 - 场景触发设计（强制）：日志方案必须明确“问题场景何时算命中、命中后哪些节点开始输出、哪些节点保持静默”；至少给出一条可复用现有条件表达的场景触发表达式思路
 - 场景触发可观测性（强制）：每个候选日志点都必须说明它是在验证“场景已触发”还是“触发后哪一步首次输出异常”；若两者都说不清，禁止列为优先日志点
@@ -159,6 +164,7 @@ External invocation protocol:
   - 变量展示强制（流式版）：格式化变量必须用 `<< ", 变量【中文真实参数物理作用】=" << 表达式` 形式串接，禁止使用 `%d/%f` printf 占位符（流式形态不支持）。
   - 语言强制：日志正文必须为中文并表达物理含义，禁止纯英文状态词（`done/finished/success` 等）作为前缀或主语义。
   - 场景/对象门控与 ROS2 侧一致：仍必须复用现有问题命中条件（复现时间窗 / 目标 object_id 命中 / 已确认无歧义的前四位前缀 / 异常状态分支）作为门控，未命中默认不输出；仅把输出语句的展开形态从 printf 换成流式，标识始终为 `DEBUG_LOG_BASE`。
+  - 范围值门控与 ROS2 侧一致：对连续/浮点物理量与时间窗，同样禁止用精确具体值触发，必须改用贴合场景物理含义、宽度适中的区间/阈值带（既稳定覆盖问题帧又排除无关正常帧），并在计划中给出区间上下界与宽度理由；离散 object_id/前四位前缀仍按精确命中，不适用范围值。
   - 头文件封装（一次性、仅在缺失时）：若目标包内尚未定义流式 `DEBUG_LOG_BASE`，允许在包内新建一个薄封装头（例如 `debug_log_base.h`）并逐字符使用下方“流式封装精确模板”，其内部 `#include "gac/stc/common/log/log.h"` 并将 `DEBUG_LOG_BASE` 定义为 `PINFO` 流式起点；禁止改动 `gac/stc/common/log/log.h` 原有宏定义。若包内已存在该封装，直接复用，不重复定义。
   - 交接自检闸门：给出“完整函数代码段”前，必须确认非 ROS2 包用的是流式形态 `DEBUG_LOG_BASE << ...;`（而非 printf 形态或裸 `PINFO`）；若误用 printf 形态、`__func__` 或裸 `PINFO`，必须先改写为统一标识流式形态再输出。
 - 流式封装精确模板（强制，仅当目标包缺少流式 `DEBUG_LOG_BASE` 时按需一次性引入，逐字符原样使用，不允许自定义改写）：
@@ -338,6 +344,7 @@ Keep iterating until explicit approval or handoff.
 - 状态变化: {速度、加速度、状态机、模块判定发生了什么变化}
 - 外部异常表现: {刹停/甩尾/不减速/轨迹跳变等}
 - 场景门控候选: {可直接复用的现有条件、状态判断、object_id 命中表达，或已确认无歧义的前四位前缀命中表达}
+- 门控范围值设计: {对连续/浮点物理量与时间窗，给出贴合场景的区间/阈值带（如 距离∈[x_lo,x_hi]、速度>=v_th、时间窗∈[t0,t1]）；每项说明区间宽度为何能稳定覆盖问题帧、又能排除无关正常帧；离散 object_id 仍精确命中，不用范围值}
 
 **关键逻辑复现定位结果（先于日志）**
 - 入口节点候选: {file + symbol + why this is first physically relevant node}
@@ -389,6 +396,7 @@ Keep iterating until explicit approval or handoff.
 - DEBUG call-arg policy (mandatory): first argument must be `__func__` only; never use string literals (e.g. `"MPTOptimizer"`) or other identifiers
 - Required call shape: `DEBUG_LOG_BASE(__func__, "[test-Nx] ...", ...);`
 - Problem-scene gate policy (mandatory): all debug logs must be gated by an existing issue-scene hit condition (repro window and/or target object_id hit and/or unambiguous first-four-character prefix hit and/or abnormal-state branch); when not matched, default to no log output to avoid normal-path noise
+- Range-based gate policy (mandatory): for continuous/floating-point physical quantities (relative distance, speed, acceleration, TTC, lateral offset, time/frame window, etc.), never gate on an exact specific value or exact float equality — that makes the problem frame only occasionally match and the log sometimes fail to fire; instead gate on a physically meaningful, moderately sized range/threshold band (e.g. `x_lo <= 值 <= x_hi`, or `值 >= 阈值 && 值 <= 上限`, or 时间窗 `[t0, t1]`). The band must be wide enough to stably cover the problem frames (tolerating jitter, dropped/misaligned samples, upstream/downstream latency) yet narrow enough to exclude unrelated normal frames; forbid both over-wide bands (equivalent to no gate / full spam) and over-narrow bands (equivalent to exact value / easy to miss). For each ranged gate the plan must state the gated quantity's Chinese physical meaning, its bounds, why the width stably covers the problem frames, and why it excludes normal frames; reuse existing thresholds/params' units where possible and add no new parameter or member for the gate. Discrete identifiers (full UUID/object_id or an unambiguous first-four-character prefix) stay exact-match and are exempt from range gating.
 - Scene-trigger design policy (mandatory): before placing detailed logs, explicitly derive a “scene trigger gate” from the user's problem description and existing code conditions; detailed logs may start only after this gate is hit
 - Scene-to-gate mapping policy (mandatory): explain how the narrative scene maps to concrete existing conditions/states, including which part represents trigger time, which part represents target object, and which part represents abnormal behavior onset
 - Input/output debug policy (mandatory): log design must serve the reproduction evidence chain "input -> decision -> output -> symptom"; every proposed log point must explain whether it is checking scene-trigger input, scene-relevant branch selection, scene-manifesting output, or downstream physical effect. Do not label the chain as root-cause attribution.
