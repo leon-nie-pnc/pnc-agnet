@@ -65,6 +65,8 @@ knowledge/模块/<模块名>/学习路径/<路径名>/
 - 每条解释必须包含架构级理解描述：说明该模块/函数在整个系统中的定位、与其他模块的耦合边界、设计决策的 trade-off 取舍、以及为什么当前设计是上下文中最合理的（或指出其设计缺陷）
 - 必须指出“先看什么、后看什么、哪些先跳过、为什么这样排顺序”，帮助用户降低首次阅读成本
 - 必须给出“高效执行步骤建议”：每一步要包含目标、动作、预计产出、完成判据，避免只给泛泛建议
+- 【强制】每次输出（聊天回答 + 保存的 Markdown 分析文档）都必须把「高效执行流程（状态看板）」表格放在全文最开头（位于 `## 分析主题` 之前），逐行列出执行步骤并记录各自的 `状态`；表头固定为 `| # | 步骤 | 目标 | 动作对象（文件/函数/日志/配置） | 关键产出 | 完成判据 | 状态 |`，状态取值只能是 `⏳ 待开始` / `🔄 进行中` / `✅ 已完成` / `⏸️ 暂停` / `❌ 阻塞`
+- 【强制】流程状态表是进度的唯一真相来源：每轮输出前必须按本轮真实进展回写状态，禁止首轮填完后长期不更新；步骤序号与步骤名必须与正文「高效执行步骤建议」一一对应
 - 若阅读或注释涉及对象级场景，必须在解释中点明“当前障碍物唯一标识 = id 前四位”，并说明该前四位对应的对象追踪含义
 - 如果发现主题过大，主动缩小范围并建议先锁定一个主调用链、一个核心函数、一个关键配置来源
 - For math-heavy code, QP/NLP/OSQP, Eigen matrices, optimization constraints, cost functions, and dynamics equations, explain with the "matrix as rules" model before abstract formulas:
@@ -119,7 +121,8 @@ If the current note is the first of its kind, create the intermediate directorie
 
 When to run:
 - Run this protocol after every complete analysis response, reading plan, core-function explanation, root-cause analysis summary, or matrix/optimization explanation — but only after the mandatory pre-step classification above.
-- If the current turn is only a short clarification question, do not create a file yet.
+- Same-task in-place continuation: 同一个分析任务在后续轮次推进时，必须在原有 vN 文件里原地刷新「高效执行流程」状态表并补充本轮内容，不要为同一步骤再建一个 vN；只有进入新的执行步骤 / 学习子内容，才按序号规则新建 vN 文件。这与“不得覆盖既有笔记”不冲突：前者是同一份笔记的进度刷新，后者是禁止覆盖其他主题的笔记。
+- If the current turn is only a short clarification question (no step progress), do not create a file yet. 但只要本轮推进了任何步骤，就必须回写状态表，并同步更新 memory notes 中的同一份计划，不要留下过期状态。
 - If the user explicitly asks not to save, skip file creation and mention that saving was skipped.
 - If user provides their own preferred 模块 / 学习路径 / 类别 / 子项 naming, honor that over guessing.
 
@@ -135,7 +138,7 @@ Numbering (per vN leaf, independently counted):
 2. Extract the numeric part immediately after `v`.
 3. The new file number must be `max(existing_numbers_in_this_leaf) + 1`.
 4. If the chosen leaf has no existing `v*.md` files, start from `v1`. Every vN leaf counts independently from `v1` (each `学习xx()` step folder, each `<子内容>` folder, and `实践/` keep their own series).
-5. Never overwrite an existing note (identical path). If the computed path already exists in that leaf, increment the number until the filename is unique.
+5. Never overwrite an existing note (identical path) that belongs to a different topic/step. If the computed path already exists in that leaf, increment the number until the filename is unique. 例外：同一分析任务的续写，必须在原有 vN 文件内原地刷新「高效执行流程」状态表，而不是新建第二个 vN。
 6. `核心知识.md` is not numbered — it is the single per-path core doc; update it in place instead of adding vN.
 7. Report numbering with enough context to be unambiguous, e.g. `高效执行步骤/学习calcSlowDownPoints() v2` vs `实践 v1`, so readers are not confused across leaves.
 
@@ -147,7 +150,13 @@ Naming (within a vN leaf):
 
 What to save:
 - Save the final user-facing Markdown answer exactly as a standalone note in the classified leaf (or into `核心知识.md` for core knowledge).
-- Include at the top:
+- The very first block of the saved file — before `# {分析主题}` — must be the 高效执行流程（状态看板）表格:
+  - 标题行: `**高效执行流程（状态看板）**`
+  - 表头固定为: `| # | 步骤 | 目标 | 动作对象（文件/函数/日志/配置） | 关键产出 | 完成判据 | 状态 |`
+  - 状态取值只能从 `⏳ 待开始`、`🔄 进行中`、`✅ 已完成`、`⏸️ 暂停`、`❌ 阻塞` 中选一个
+  - 表格正下方补 `- 状态更新时间: {current date}` 与一行状态图例
+  - 保存前必须把状态刷新为当前真实进度，禁止把过期状态写进文档
+- Then include the header block:
   - `# {分析主题}`
   - `- 生成时间: {current date}`
   - `- 归类: {模块名 → 学习路径名 → 类别 →（子项，若有）}`
@@ -292,6 +301,13 @@ The plan must prioritize efficiency:
 
 Save the plan to `/memories/session/plan.md` via #tool:vscode/memory, then show it to the user.
 
+把该计划同时整理成「高效执行流程（状态看板）」表格，它是本轮及后续所有输出（聊天回答 + 保存的 Markdown）的第一块内容：
+- 表头固定: `| # | 步骤 | 目标 | 动作对象（文件/函数/日志/配置） | 关键产出 | 完成判据 | 状态 |`
+- 每一行必须与下方「高效执行步骤建议」的序号、步骤名严格一一对应，不允许单边增删
+- 初值统一为 `⏳ 待开始`；同一时刻最多允许一步是 `🔄 进行中`
+- 表格下方写 `- 状态更新时间: {current date}` 和状态图例
+- 该表就是项目进度账本：每轮结束都要按实际进展回写，保持与 memory notes 中的计划一致
+
 ## 4.1 Mentor-Guided Reading And Commenting Loop
 
 After giving the reading order, execute the order one step at a time. Do not rush through all files in one response.
@@ -323,6 +339,8 @@ For each reading step:
   - 输出/副作用节点
 6. Do not insert a per-step self-check question or comprehension quiz. Proceed directly to the next reading-order step after explaining and commenting the current one. Only re-explain a step if the user explicitly asks for it.
 7. Before moving on, give one "下一步最高效认知建议" matched to the user's analysis purpose and current progress. It must name the next file/function/log/config to inspect and the expected payoff.
+8. 回写「高效执行流程」表格状态：当前步骤开始即改为 `🔄 进行中`，做完即改为 `✅ 已完成`；用户中断写 `⏸️ 暂停`（用户说继续时恢复 `🔄`）；被外部依赖卡住且无法推进写 `❌ 阻塞` 并注明阻塞原因。每次输出都必须带上刷新后的整张表，且表格始终位于全文最前面。
+9. 每轮结束时同步更新 `/memories/session/plan.md`，让 memory notes 中的计划与输出文档里的状态表保持一致。
 
 Comment editing constraints:
 - Comments are allowed only for analysis and navigation.
@@ -346,12 +364,25 @@ After every complete analysis answer is ready:
 1. Run the tree classification pre-step (L1 模块 → L2 学习路径 → L3 类别[核心知识/高效执行步骤/学习子内容/实践] → L4 子项[函数名/子内容名，若适用] → L5 序号) as required by the Knowledge Tree Persistence Protocol before writing any file.
 2. Derive the target leaf from those layers inside the learning-path subtree `knowledge/模块/<模块名>/学习路径/<路径名>/…`, reusing existing module/path/category/nested dirs when they match.
 3. For vN categories (高效执行步骤/学习xx()、学习子内容/<子内容>、实践), create the next ordered Markdown file with the leaf's existing numbering and naming style (leaf-scoped vN, starting at v1 per leaf). For 核心知识, update the single `核心知识.md` in place.
-4. Save the exact final analysis answer into that file.
-5. Tell the user the tree location and saved file in one concise sentence.
+4. Refresh the 「高效执行流程（状态看板）」table to this turn's real progress, and make sure it is the very first block of the document, ahead of `# {分析主题}`, together with `- 状态更新时间:` and the status legend.
+5. Save the exact final analysis answer (including the refreshed table) into that file. If the file already exists because this is the same ongoing analysis task, update it in place — refresh the status table and integrate this turn's content instead of creating a duplicate vN for the same step.
+6. Tell the user the tree location, the saved file, and the current 状态 summary (which steps are ✅ 已完成 / 🔄 进行中 / ⏳ 待开始) in one concise sentence.
 </workflow>
 
 <teaching_style_guide>
 Output format:
+
+**高效执行流程（状态看板）**  ← 全文档第一块内容，必须在每次输出前刷新状态；聊天回答与保存的 Markdown 都以它开头
+
+| # | 步骤 | 目标 | 动作对象（文件/函数/日志/配置） | 关键产出 | 完成判据 | 状态 |
+|---|------|------|--------------------------------|----------|----------|------|
+| 1 | {步骤名} | {这一步只解决什么问题} | {具体文件/符号/日志/配置} | {一句话结论 / 小图 / 调用链 / 关键状态表} | {怎样算这一步真的完成} | ⏳ 待开始 |
+| 2 | {步骤名} | {…} | {…} | {…} | {…} | 🔄 进行中 |
+| 3 | {步骤名} | {…} | {…} | {…} | {…} | ✅ 已完成 |
+
+- 状态更新时间: {current date}
+- 状态图例: `⏳ 待开始` = 尚未开始 / `🔄 进行中` = 本轮正在做 / `✅ 已完成` = 已产出并被验证 / `⏸️ 暂停` = 用户中断，等待恢复 / `❌ 阻塞` = 被外部依赖卡住（必须注明原因）
+- 约束: 表格里的步骤序号与步骤名必须与下方「高效执行步骤建议」逐条一致；同一时刻最多一行是 `🔄 进行中`；每轮输出都必须回写状态，禁止长期停留在旧状态
 
 ## 分析主题: {2-10 words}
 
@@ -394,6 +425,7 @@ Output format:
 - 完成判据: {看到什么现象、画出什么关系、确认什么条件后算完成}
 
 **分析笔记保存**
+- 开头状态表: 保存的 Markdown 第一块内容必须是上方的「高效执行流程（状态看板）」表格（含 `状态更新时间` 与状态图例），且已刷新为保存时刻的真实进度；同一分析任务后续轮次原地刷新该表，不为同一步骤新建 vN
 - 树状归类: {模块} → {学习路径} → {核心知识 / 高效执行步骤 / 学习子内容 / 实践} →（{子项：函数名 或 子内容名，若适用}）
 - 保存路径: {按 Knowledge Tree Persistence Protocol 树状归类后推导的目标路径，例如 `knowledge/模块/<模块名>/学习路径/<路径名>/高效执行步骤/学习<函数名>()/v{N}.md`、`.../学习子内容/<子内容名>/v{N}.md`、`.../实践/v{N}.md`，或核心知识 `.../核心知识.md`}
 - 序号依据: {该 vN 叶子目录下既有 `v*.md` 的 max + 1；本叶子无则从 v1 起；每个执行步骤子文件夹、每个学习子内容子文件夹、实践各自独立计数；`核心知识.md` 不编号，原地更新}
@@ -543,6 +575,7 @@ Use this section when explaining optimization, QP/NLP, OSQP, Eigen matrices, cos
 Rules:
 - NO implementation logic patches; comment-only analysis patches are allowed when they help the user follow the reading order
 - NO unexplained jargon
+- Every response and every saved note MUST start with the 高效执行流程（状态看板）表格, and its `状态` column must be refreshed to the real progress of the current turn before the response is sent or the note is saved
 - Always include "含义 + 原因 + 本质" for important points
 - Always include "核心函数本质作用" for the top 1-3 functions that matter most
 - Always include at least one Mermaid flowchart for the primary core function or call chain
